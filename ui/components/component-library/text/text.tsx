@@ -1,0 +1,92 @@
+import React from 'react';
+import classnames from 'clsx';
+
+import {
+  TextVariant,
+  TextColor,
+} from '../../../helpers/constants/design-system';
+
+import { Box } from '../box';
+import type { PolymorphicRef, BoxProps } from '../box';
+
+import { TextProps, TextComponent } from './text.types';
+
+const getTextElementDefault = (variant: TextVariant) => {
+  switch (variant) {
+    case TextVariant.displayMd:
+      return 'h1';
+    case TextVariant.headingLg:
+      return 'h2';
+    case TextVariant.headingMd:
+      return 'h3';
+    case TextVariant.headingSm:
+      return 'h4';
+    case TextVariant.inherit:
+      return 'span';
+    // TextVariant.bodyLgMedium, TextVariant.bodyMd, TextVariant.bodyMdBold, TextVariant.bodySm, TextVariant.bodySmBold, TextVariant.bodyXs use default 'p' tag
+    default:
+      return 'p';
+  }
+};
+
+/**
+ * @deprecated This component is deprecated and will be removed in a future release.
+ * Please use the Text component from @metamask/design-system-react instead.
+ * @see {@link https://github.com/MetaMask/metamask-design-system/blob/main/packages/design-system-react/MIGRATION.md#text-component | Migration Guide}
+ * @see {@link https://metamask.github.io/metamask-design-system/?path=/docs/react-components-text--docs | Storybook Documentation}
+ * @see {@link https://github.com/MetaMask/metamask-design-system/tree/main/packages/design-system-react/src/components/Text | Component Source}
+ */
+export const Text: TextComponent = React.forwardRef(
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  <C extends React.ElementType = 'p'>(
+    {
+      variant = TextVariant.bodyMd,
+      fontWeight,
+      fontStyle,
+      fontFamily,
+      textTransform,
+      textAlign,
+      textDirection,
+      overflowWrap,
+      ellipsis,
+      className = '',
+      children,
+      ...props
+    }: TextProps<C>,
+    ref?: PolymorphicRef<C>,
+  ) => {
+    // Set tag based on variant
+    // If as prop is passed tag will be overridden
+    const tag = getTextElementDefault(variant);
+    const computedClassName = classnames(
+      'mm-text',
+      className,
+      `mm-text--${variant}`,
+      {
+        [`mm-text--font-weight-${fontWeight}`]: Boolean(fontWeight),
+        [`mm-text--font-style-${fontStyle}`]: Boolean(fontStyle),
+        [`mm-text--font-family-${fontFamily}`]: Boolean(fontFamily),
+        [`mm-text--ellipsis`]: Boolean(ellipsis),
+        [`mm-text--text-transform-${textTransform}`]: Boolean(textTransform),
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31893
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        [`mm-text--text-align-${textAlign}`]: Boolean(textAlign),
+        [`mm-text--overflow-wrap-${overflowWrap}`]: Boolean(overflowWrap),
+      },
+    );
+
+    return (
+      <Box
+        className={classnames(computedClassName)}
+        as={tag}
+        dir={textDirection}
+        ref={ref}
+        color={TextColor.textDefault}
+        {...(props as BoxProps<C>)}
+      >
+        {children}
+      </Box>
+    );
+  },
+);

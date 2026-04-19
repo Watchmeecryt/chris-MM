@@ -1,0 +1,25 @@
+import React from 'react';
+import { fireEvent, render } from '@testing-library/react';
+
+import { DisconnectAllModal } from '.';
+
+describe('DisconnectAllModal', () => {
+  const onClick = jest.fn();
+
+  const args = {
+    onClose: jest.fn(),
+    onClick,
+  };
+
+  it('should render correctly', () => {
+    const { container } = render(<DisconnectAllModal {...args} />);
+    expect(container).toMatchSnapshot();
+  });
+
+  it('should fire onClick when Disconnect All button is clicked', () => {
+    const { getByTestId } = render(<DisconnectAllModal {...args} />);
+    const disconnectAllButton = getByTestId('disconnect-all');
+    fireEvent.click(disconnectAllButton);
+    expect(onClick).toHaveBeenCalled();
+  });
+});

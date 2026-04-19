@@ -1,0 +1,88 @@
+import React from 'react';
+
+import { renderWithProvider } from '../../../../../../../test/lib/render-helpers-navigate';
+import configureStore from '../../../../../../store/store';
+import { enLocale as messages } from '../../../../../../../test/lib/i18n-helpers';
+
+import StatusSlider from './status-slider';
+
+const renderComponent = ({ networkCongestion } = {}) => {
+  const gasFeeEstimates =
+    networkCongestion === undefined ? undefined : { networkCongestion };
+
+  const store = configureStore();
+  return renderWithProvider(
+    <StatusSlider gasFeeEstimates={gasFeeEstimates} />,
+    store,
+  );
+};
+
+describe('StatusSlider', () => {
+  it('should show "Not busy" when networkCongestion is less than 0.33', () => {
+    const { getByText } = renderComponent({ networkCongestion: 0.32 });
+    expect(getByText(messages.notBusy.message)).toBeInTheDocument();
+  });
+
+  it('should show "Stable" when networkCongestion is 0.33', () => {
+    const { getByText } = renderComponent({ networkCongestion: 0.33 });
+    expect(getByText(messages.stable.message)).toBeInTheDocument();
+  });
+
+  it('should show "Stable" when networkCongestion is between 0.33 and 0.66', () => {
+    const { getByText } = renderComponent({ networkCongestion: 0.5 });
+    expect(getByText(messages.stable.message)).toBeInTheDocument();
+  });
+
+  it('should show "Busy" when networkCongestion is 0.9', () => {
+    const { getByText } = renderComponent({ networkCongestion: 0.9 });
+    expect(getByText(messages.busy.message)).toBeInTheDocument();
+  });
+
+  it('should show "Busy" when networkCongestion is greater than 0.9', () => {
+    const { getByText } = renderComponent({ networkCongestion: 0.91 });
+    expect(getByText(messages.busy.message)).toBeInTheDocument();
+  });
+
+  it('should show "Stable" if networkCongestion is not available yet', () => {
+    const { getByText } = renderComponent({});
+    expect(getByText(messages.stable.message)).toBeInTheDocument();
+  });
+
+  it('should position the arrow based on converting networkCongestion to a percentage rounded to the nearest 10', () => {
+    const { getByTestId } = renderComponent({ networkCongestion: 0.23 });
+    expect(getByTestId('status-slider-arrow-border')).toHaveStyle(
+      'margin-left: 20%',
+    );
+  });
+
+  it('should position the arrow in the middle if networkCongestion has not been set yet', () => {
+    const { getByTestId } = renderComponent({});
+    expect(getByTestId('status-slider-arrow-border')).toHaveStyle(
+      'margin-left: 50%',
+    );
+  });
+
+  it('should color the arrow and label based on converting networkCongestion to a percentage rounded to the nearest 10', () => {
+    const { getByTestId } = renderComponent({ networkCongestion: 0.23 });
+    expect(getByTestId('status-slider-arrow')).toHaveStyle(
+      'border-top-color: #2D70BA',
+    );
+    expect(getByTestId('status-slider-label')).toHaveStyle('color: #2D70BA');
+  });
+
+  it('should color the arrow and label for the end position if networkCongestion rounds to 100%', () => {
+    const { getByTestId } = renderComponent({ networkCongestion: 0.95 });
+    expect(getByTestId('status-slider-arrow')).toHaveStyle(
+      'border-top-color: #D73A49',
+    );
+    expect(getByTestId('status-slider-label')).toHaveStyle('color: #D73A49');
+  });
+
+  it('should color the arrow and label for the middle position if networkCongestion has not been set yet', () => {
+    const { getByTestId } = renderComponent({});
+    expect(getByTestId('status-slider-arrow')).toHaveStyle(
+      'border-top-color: #6D5C90',
+    );
+    expect(getByTestId('status-slider-label')).toHaveStyle('color: #6D5C90');
+  });
+});

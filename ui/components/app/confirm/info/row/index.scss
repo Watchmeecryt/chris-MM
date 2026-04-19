@@ -1,0 +1,37 @@
+.expandable {
+  transition: height 0.3s ease-in-out;
+  overflow: hidden;
+}
+
+.expandIcon {
+  transition: 0.3s ease-in-out;
+}
+
+.expandIcon.expanded {
+  rotate: -180deg;
+}
+
+.hoverable:hover {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.address-display-clickable {
+  display: inline-flex;
+
+  button,
+  button * {
+    color: var(--color-text-default) !important;
+  }
+
+  &:hover {
+    button,
+    button * {
+      color: var(--color-primary-default) !important;
+    }
+
+    button {
+      text-decoration-color: var(--color-primary-default) !important;
+    }
+  }
+}

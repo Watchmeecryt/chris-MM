@@ -1,0 +1,270 @@
+import React, { useCallback, useContext, useEffect, useMemo } from 'react';
+
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  AlignItems,
+  BlockSize,
+  Display,
+  FlexDirection,
+  JustifyContent,
+} from '../../../helpers/constants/design-system';
+import {
+  Box as BoxDeprecated,
+  ButtonIcon,
+  ButtonIconSize,
+  IconName as IconNameDeprecated,
+  Text,
+} from '../../component-library';
+import { MultichainTriggeredAddressRowsList } from '../../multichain-accounts/multichain-address-rows-triggered-list';
+import {
+  MetaMetricsEventName,
+  MetaMetricsEventCategory,
+} from '../../../../shared/constants/metametrics';
+import { useI18nContext } from '../../../hooks/useI18nContext';
+import { setShowSupportDataConsentModal } from '../../../store/actions';
+import { AccountPicker } from '../account-picker';
+import { GlobalMenuDrawerWithList } from '../global-menu-drawer';
+import {
+  getSelectedInternalAccount,
+  getIsDefaultAddressEnabled,
+} from '../../../selectors';
+// TODO: Remove restricted import
+// eslint-disable-next-line import-x/no-restricted-paths
+import { normalizeSafeAddress } from '../../../../app/scripts/lib/multichain/address';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
+import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard';
+import { NotificationsTagCounter } from '../notifications-tag-counter';
+import { ACCOUNT_LIST_PAGE_ROUTE } from '../../../helpers/constants/routes';
+import { transitionForward } from '../../ui/transition';
+import VisitSupportDataConsentModal from '../../app/modals/visit-support-data-consent-modal';
+import {
+  getShowSupportDataConsentModal,
+  setShowCopyAddressToast,
+} from '../../../ducks/app/app';
+import {
+  getAccountListStats,
+  getMultichainAccountGroupById,
+  getSelectedAccountGroup,
+} from '../../../selectors/multichain-accounts/account-tree';
+import { trace, TraceName, TraceOperation } from '../../../../shared/lib/trace';
+import { MultichainAccountNetworkGroupWithCopyIcon } from '../../multichain-accounts/multichain-account-network-group-with-copy-icon';
+
+type AppHeaderUnlockedContentProps = {
+  disableAccountPicker: boolean;
+  menuRef: React.RefObject<HTMLButtonElement>;
+};
+
+export const AppHeaderUnlockedContent = ({
+  disableAccountPicker,
+  menuRef,
+}: AppHeaderUnlockedContentProps) => {
+  const { trackEvent } = useContext(MetaMetricsContext);
+  const t = useI18nContext();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Derive from URL so drawer state survives route changes (e.g. homepage mount) without render>close>render flash
+  const accountOptionsMenuOpen = searchParams.get('drawerOpen') === 'true';
+  const selectedMultichainAccountId = useSelector(getSelectedAccountGroup);
+  const selectedMultichainAccount = useSelector((state) =>
+    getMultichainAccountGroupById(state, selectedMultichainAccountId),
+  );
+  const accountListStats = useSelector(getAccountListStats);
+  const isDefaultAddressEnabled = useSelector(getIsDefaultAddressEnabled);
+
+  // Used for account picker
+  const internalAccount = useSelector(getSelectedInternalAccount);
+  const accountName = selectedMultichainAccount?.metadata.name ?? '';
+
+  // During onboarding there is no selected internal account
+  const currentAddress = internalAccount?.address;
+
+  // Passing non-evm address to checksum function will throw an error
+  const normalizedCurrentAddress = normalizeSafeAddress(currentAddress);
+
+  // useCopyToClipboard analysis: Copies a public address
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [copied, _, resetCopyState] = useCopyToClipboard({
+    clearDelayMs: null,
+  });
+
+  const showSupportDataConsentModal = useSelector(
+    getShowSupportDataConsentModal,
+  );
+
+  const closeAccountOptionsMenu = useCallback(() => {
+    setSearchParams((prev) => {
+      prev.delete('drawerOpen');
+      return prev;
+    });
+  }, [setSearchParams]);
+
+  // Reset copy state when a switching accounts
+  useEffect(() => {
+    if (normalizedCurrentAddress) {
+      resetCopyState();
+    }
+  }, [normalizedCurrentAddress, resetCopyState]);
+
+  useEffect(() => {
+    if (copied) {
+      dispatch(setShowCopyAddressToast(true));
+    } else {
+      dispatch(setShowCopyAddressToast(false));
+    }
+  }, [copied, dispatch]);
+
+  const handleMainMenuToggle = useCallback(() => {
+    const isMenuOpen = !accountOptionsMenuOpen;
+    if (isMenuOpen) {
+      trackEvent({
+        event: MetaMetricsEventName.NavMainMenuOpened,
+        category: MetaMetricsEventCategory.Navigation,
+        properties: {
+          location: 'Home',
+        },
+      });
+    }
+
+    setSearchParams((prev) => {
+      if (isMenuOpen) {
+        prev.set('drawerOpen', 'true');
+      } else {
+        prev.delete('drawerOpen');
+      }
+      return prev;
+    });
+  }, [accountOptionsMenuOpen, trackEvent, setSearchParams]);
+
+  const multichainAccountAppContent = useMemo(() => {
+    return (
+      <BoxDeprecated style={{ overflow: 'hidden' }}>
+        {/* Prevent overflow of account picker by long account names */}
+        <Text
+          as="div"
+          display={Display.Flex}
+          flexDirection={FlexDirection.Column}
+          alignItems={AlignItems.flexStart}
+          ellipsis
+        >
+          <AccountPicker
+            address={''} // No address shown in multichain mode
+            name={accountName}
+            showAvatarAccount={false}
+            onClick={() => {
+              trace({
+                name: TraceName.ShowAccountList,
+                op: TraceOperation.AccountUi,
+              });
+              transitionForward(() => navigate(ACCOUNT_LIST_PAGE_ROUTE));
+              trackEvent({
+                event: MetaMetricsEventName.NavAccountMenuOpened,
+                category: MetaMetricsEventCategory.Navigation,
+                properties: {
+                  location: 'Home',
+                  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  pinned_count: accountListStats.pinnedCount,
+                  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  hidden_count: accountListStats.hiddenCount,
+                  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  total_accounts: accountListStats.totalAccounts,
+                },
+              });
+            }}
+            disabled={disableAccountPicker}
+            paddingLeft={2}
+            paddingRight={2}
+          />
+        </Text>
+        {selectedMultichainAccountId && (
+          <BoxDeprecated
+            marginTop={1}
+            marginLeft={2}
+            style={{ width: 'fit-content' }}
+            data-testid="networks-subtitle-test-id"
+          >
+            <MultichainTriggeredAddressRowsList
+              groupId={selectedMultichainAccountId}
+              showAccountHeaderAndBalance={false}
+              onViewAllClick={() => {
+                trace({
+                  name: TraceName.ShowAccountAddressList,
+                  op: TraceOperation.AccountUi,
+                });
+              }}
+              showDefaultAddressSection={isDefaultAddressEnabled}
+            >
+              <MultichainAccountNetworkGroupWithCopyIcon
+                groupId={selectedMultichainAccountId}
+              />
+            </MultichainTriggeredAddressRowsList>
+          </BoxDeprecated>
+        )}
+      </BoxDeprecated>
+    );
+  }, [
+    accountName,
+    disableAccountPicker,
+    isDefaultAddressEnabled,
+    selectedMultichainAccountId,
+    navigate,
+    trackEvent,
+    accountListStats,
+  ]);
+
+  return (
+    <>
+      <BoxDeprecated
+        display={Display.Flex}
+        flexDirection={FlexDirection.Row}
+        alignItems={AlignItems.center}
+        gap={2}
+        className="min-w-0"
+      >
+        {multichainAccountAppContent}
+      </BoxDeprecated>
+      <BoxDeprecated
+        display={Display.Flex}
+        alignItems={AlignItems.center}
+        justifyContent={JustifyContent.flexEnd}
+        style={{ marginLeft: 'auto' }}
+      >
+        <BoxDeprecated display={Display.Flex} gap={2}>
+          <BoxDeprecated
+            display={Display.Flex}
+            justifyContent={JustifyContent.flexEnd}
+            width={BlockSize.Full}
+            style={{ position: 'relative' }}
+          >
+            {!accountOptionsMenuOpen && (
+              <BoxDeprecated onClick={handleMainMenuToggle}>
+                <NotificationsTagCounter noLabel />
+              </BoxDeprecated>
+            )}
+            <ButtonIcon
+              ref={menuRef}
+              iconName={IconNameDeprecated.Menu}
+              data-testid="account-options-menu-button"
+              ariaLabel={t('accountOptions')}
+              onClick={handleMainMenuToggle}
+              size={ButtonIconSize.Lg}
+            />
+          </BoxDeprecated>
+        </BoxDeprecated>
+        <GlobalMenuDrawerWithList
+          anchorElement={menuRef.current}
+          isOpen={accountOptionsMenuOpen}
+          onClose={closeAccountOptionsMenu}
+        />
+        <VisitSupportDataConsentModal
+          isOpen={showSupportDataConsentModal}
+          onClose={() => dispatch(setShowSupportDataConsentModal(false))}
+        />
+      </BoxDeprecated>
+    </>
+  );
+};

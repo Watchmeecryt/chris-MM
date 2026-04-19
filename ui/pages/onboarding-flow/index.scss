@@ -1,0 +1,55 @@
+@use "design-system";
+
+@import 'recovery-phrase/index';
+@import 'onboarding-app-header/index';
+@import 'privacy-settings/index';
+@import 'create-password/index';
+@import 'creation-successful/index';
+@import 'welcome/index';
+@import 'metametrics/index';
+
+.onboarding-flow {
+  &--welcome-banner {
+    background: url('/images/welcome-banner.png') no-repeat calc(50% + 500px) 160px;
+    background-color: var(--color-accent03-light);
+  }
+
+  &__container {
+    padding-inline: 16px;
+    padding-top: 16px;
+    padding-bottom: 16px;
+    max-width: 446px;
+    min-height: 627px;
+    height: auto;
+    margin-bottom: 32px;
+
+    @include design-system.screen-sm-min {
+      padding-inline: 24px;
+      padding-top: 32px;
+      padding-bottom: 32px;
+    }
+
+    &--full {
+      padding-inline: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      max-width: none;
+      min-height: auto;
+      height: 100%;
+    }
+
+    &--popup,
+    &--sidepanel {
+      padding-inline: 16px;
+      padding-top: 16px;
+      padding-bottom: 24px;
+      min-height: auto;
+      height: 100%;
+      margin-bottom: 0;
+    }
+  }
+
+  &__x-button__icon {
+    margin-bottom: -6px;
+  }
+}

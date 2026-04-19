@@ -1,0 +1,80 @@
+@use "design-system";
+
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --width-sm: 576px;
+  --width-max: 798px;
+  --width-max-sidepanel: 490px;
+  --header-height: 68px;
+
+  color-scheme: dark light;
+  color: light-dark(var(--brand-colors-grey-grey1000), var(--brand-colors-grey-grey050));
+  background-color: light-dark(var(--brand-colors-grey-grey050), var(--brand-colors-grey-grey1000));
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+  overflow: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+html[data-theme] {
+  color: var(--color-text-default);
+  background-color: var(--color-background-alternative);
+}
+
+/* stylelint-disable */
+#app-content, #critical-error-content {
+  overflow-x: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+/* stylelint-enable */
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+a:hover {
+  color: var(--color-primary-alternative);
+}
+
+/** Default Typography on base elements **/
+* {
+  font-family: design-system.$font-family;
+}
+
+/** Global Scrollbar Styles **/
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-icon-muted) transparent;
+}
+
+/* Webkit: Chrome, Brave, Safari */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  -webkit-border-radius: 8px;
+  border-radius: 8px;
+  background: var(--color-icon-muted);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

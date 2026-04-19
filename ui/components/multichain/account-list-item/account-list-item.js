@@ -1,0 +1,473 @@
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import PropTypes from 'prop-types';
+import classnames from 'clsx';
+import { useSelector } from 'react-redux';
+import {
+  Box,
+  BoxAlignItems,
+  BoxBackgroundColor,
+  BoxFlexDirection,
+  BoxJustifyContent,
+  ButtonIcon,
+  ButtonIconSize,
+  FontWeight,
+  Icon,
+  IconName,
+  IconSize,
+  Text,
+  TextColor,
+  TextVariant,
+} from '@metamask/design-system-react';
+import { useI18nContext } from '../../../hooks/useI18nContext';
+import { getSnapName, shortenAddress } from '../../../helpers/utils/util';
+
+import { AccountListItemMenu } from '../account-list-item-menu';
+import { Tag } from '../../component-library';
+import { PreferredAvatar } from '../../app/preferred-avatar';
+import { KeyringType } from '../../../../shared/constants/keyring';
+import UserPreferencedCurrencyDisplay from '../../app/user-preferenced-currency-display/user-preferenced-currency-display.component';
+import { PRIMARY } from '../../../helpers/constants/common';
+import Tooltip from '../../ui/tooltip/tooltip';
+import {
+  MetaMetricsEventCategory,
+  MetaMetricsEventName,
+} from '../../../../shared/constants/metametrics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
+import {
+  isAccountConnectedToCurrentTab,
+  getShouldHideZeroBalanceTokens,
+  getIsTokenNetworkFilterEqualCurrentNetwork,
+  getShowFiatInTestnets,
+  getChainIdsToPoll,
+  getSnapsMetadata,
+  getMetaMaskKeyrings,
+  isSolanaAccount,
+} from '../../../selectors';
+import {
+  getMultichainBalances,
+  getMultichainIsTestnet,
+  getMultichainNetwork,
+  getMultichainShouldShowFiat,
+} from '../../../selectors/multichain';
+import { ConnectedStatus } from '../connected-status';
+import { getHDEntropyIndex } from '../../../selectors/selectors';
+// TODO: Remove restricted import
+// eslint-disable-next-line import-x/no-restricted-paths
+import { normalizeSafeAddress } from '../../../../app/scripts/lib/multichain/address';
+import { useMultichainSelector } from '../../../hooks/useMultichainSelector';
+import { useGetFormattedTokensPerChain } from '../../../hooks/useGetFormattedTokensPerChain';
+import { useAccountTotalCrossChainFiatBalance } from '../../../hooks/useAccountTotalCrossChainFiatBalance';
+import { getAccountLabels } from '../../../helpers/utils/accounts';
+
+import { getMultichainAggregatedBalance } from '../../../selectors/assets';
+
+import { AccountNetworkIndicator } from '../account-network-indicator';
+import { MULTICHAIN_NETWORK_TO_ASSET_TYPES } from '../../../../shared/constants/multichain/assets';
+import { AccountListItemMenuTypes } from './account-list-item.types';
+
+const MAXIMUM_CURRENCY_DECIMALS = 3;
+const MAXIMUM_CHARACTERS_WITHOUT_TOOLTIP = 17;
+
+const AccountListItem = ({
+  account,
+  selected,
+  onClick,
+  closeMenu,
+  connectedAvatar,
+  isPinned = false,
+  menuType = AccountListItemMenuTypes.None,
+  isHidden = false,
+  currentTabOrigin,
+  isActive = false,
+  startAccessory,
+  shouldScrollToWhenSelected = true,
+  showConnectedStatus = true,
+  privacyMode = false,
+  showAccountLabels = true,
+}) => {
+  const t = useI18nContext();
+
+  const hdEntropyIndex = useSelector(getHDEntropyIndex);
+  const [accountOptionsMenuOpen, setAccountOptionsMenuOpen] = useState(false);
+  const [accountListItemMenuElement, setAccountListItemMenuElement] =
+    useState();
+  const snapMetadata = useSelector(getSnapsMetadata);
+  const keyrings = useSelector(getMetaMaskKeyrings);
+
+  const accountLabels = useMemo(
+    () =>
+      getAccountLabels(
+        account.metadata.keyring.type,
+        account,
+        keyrings,
+        account.metadata.keyring.type === KeyringType.snap
+          ? getSnapName(snapMetadata)(account.metadata?.snap?.id)
+          : null,
+      ),
+    [account, keyrings, snapMetadata],
+  );
+
+  const { isEvmNetwork, chainId: multichainChainId } = useMultichainSelector(
+    getMultichainNetwork,
+    account,
+  );
+  const setAccountListItemMenuRef = (ref) => {
+    setAccountListItemMenuElement(ref);
+  };
+
+  const isTestnet = useMultichainSelector(getMultichainIsTestnet, account);
+  const isMainnet = !isTestnet;
+  const shouldShowFiat = useMultichainSelector(
+    getMultichainShouldShowFiat,
+    account,
+  );
+  const showFiatInTestnets = useSelector(getShowFiatInTestnets);
+  const showFiat =
+    shouldShowFiat && (isMainnet || (isTestnet && showFiatInTestnets));
+
+  const multichainAggregatedBalance = useSelector((state) =>
+    getMultichainAggregatedBalance(state, account),
+  );
+
+  const multichainBalances = useSelector(getMultichainBalances);
+  const accountMultichainBalances = multichainBalances?.[account.id];
+  const accountMultichainNativeBalance =
+    accountMultichainBalances?.[
+      `${MULTICHAIN_NETWORK_TO_ASSET_TYPES[multichainChainId]}`
+    ]?.amount;
+  // cross chain agg balance
+  const shouldHideZeroBalanceTokens = useSelector(
+    getShouldHideZeroBalanceTokens,
+  );
+  const isTokenNetworkFilterEqualCurrentNetwork = useSelector(
+    getIsTokenNetworkFilterEqualCurrentNetwork,
+  );
+  const allChainIDs = useSelector(getChainIdsToPoll);
+  const { formattedTokensWithBalancesPerChain } = useGetFormattedTokensPerChain(
+    account,
+    shouldHideZeroBalanceTokens,
+    isTokenNetworkFilterEqualCurrentNetwork,
+    allChainIDs,
+  );
+  const { totalFiatBalance } = useAccountTotalCrossChainFiatBalance(
+    account,
+    formattedTokensWithBalancesPerChain,
+  );
+  let balanceToTranslate;
+  if (isEvmNetwork) {
+    balanceToTranslate =
+      !shouldShowFiat || isTestnet || !process.env.PORTFOLIO_VIEW
+        ? account.balance
+        : totalFiatBalance;
+  } else {
+    balanceToTranslate =
+      !shouldShowFiat || isTestnet
+        ? accountMultichainNativeBalance
+        : multichainAggregatedBalance;
+  }
+
+  // If this is the selected item in the Account menu,
+  // scroll the item into view
+  const itemRef = useRef(null);
+  useEffect(() => {
+    if (selected && shouldScrollToWhenSelected) {
+      itemRef.current?.scrollIntoView?.();
+    }
+  }, [itemRef, selected, shouldScrollToWhenSelected]);
+
+  const { trackEvent } = useContext(MetaMetricsContext);
+  const currentTabIsConnectedToSelectedAddress = useSelector((state) =>
+    isAccountConnectedToCurrentTab(state, account.address),
+  );
+  const isConnected =
+    currentTabOrigin && currentTabIsConnectedToSelectedAddress;
+
+  // Only show connected status badge if account is actually connected
+  const shouldShowConnectedStatusBadge = showConnectedStatus && isConnected;
+
+  const getIsAggregatedFiatOverviewBalanceProp = () => {
+    const isAggregatedFiatOverviewBalance =
+      (!isTestnet && process.env.PORTFOLIO_VIEW && shouldShowFiat) ||
+      (!isEvmNetwork && shouldShowFiat);
+
+    return isAggregatedFiatOverviewBalance;
+  };
+
+  return (
+    <Box
+      className={classnames('multichain-account-list-item flex items-center', {
+        'multichain-account-list-item--selected': selected,
+        'multichain-account-list-item--connected': Boolean(connectedAvatar),
+        'multichain-account-list-item--clickable': Boolean(onClick),
+      })}
+      padding={4}
+      backgroundColor={
+        selected
+          ? BoxBackgroundColor.BackgroundMuted
+          : BoxBackgroundColor.Transparent
+      }
+      data-testid="account-item"
+      ref={itemRef}
+      onClick={() => {
+        // Without this check, the account will be selected after
+        // the account options menu closes
+        if (!accountOptionsMenuOpen) {
+          onClick?.(account);
+        }
+      }}
+    >
+      {startAccessory ? (
+        <Box className="me-2 mt-1">{startAccessory}</Box>
+      ) : null}
+
+      <Box className="flex w-full gap-2 items-center">
+        <Box className="flex sm:hidden" data-testid="account-list-item-badge">
+          <ConnectedStatus
+            address={account.address}
+            isActive={isActive}
+            showConnectedStatus={shouldShowConnectedStatusBadge}
+          />
+        </Box>
+        <Box className="hidden sm:flex">
+          <PreferredAvatar address={account.address} />
+        </Box>
+
+        <Box
+          flexDirection={BoxFlexDirection.Column}
+          className="multichain-account-list-item__content flex"
+        >
+          <Box flexDirection={BoxFlexDirection.Column} className="flex">
+            <Box className="flex" justifyContent={BoxJustifyContent.Between}>
+              <Box
+                className="multichain-account-list-item__account-name flex me-2"
+                alignItems={BoxAlignItems.Center}
+                gap={2}
+              >
+                {isPinned ? (
+                  <Icon
+                    name={IconName.Pin}
+                    size={IconSize.Xs}
+                    className="account-pinned-icon"
+                    data-testid="account-pinned-icon"
+                  />
+                ) : null}
+                {isHidden ? (
+                  <Icon
+                    name={IconName.EyeSlash}
+                    size={IconSize.Xs}
+                    className="account-hidden-icon"
+                  />
+                ) : null}
+                <Text
+                  asChild
+                  variant={TextVariant.BodyMd}
+                  fontWeight={FontWeight.Medium}
+                  className="multichain-account-list-item__account-name__button p-0 bg-transparent w-full text-left"
+                  ellipsis
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      if (onClick) {
+                        e.stopPropagation();
+                        onClick(account);
+                      }
+                    }}
+                  >
+                    {account.metadata.name.length >
+                    MAXIMUM_CHARACTERS_WITHOUT_TOOLTIP ? (
+                      <Tooltip
+                        title={account.metadata.name}
+                        position="bottom"
+                        wrapperClassName="multichain-account-list-item__tooltip"
+                      >
+                        {account.metadata.name}
+                      </Tooltip>
+                    ) : (
+                      account.metadata.name
+                    )}
+                  </button>
+                </Text>
+              </Box>
+              <Box
+                className="multichain-account-list-item__asset flex overflow-hidden"
+                flexDirection={BoxFlexDirection.Row}
+                alignItems={BoxAlignItems.Center}
+                justifyContent={BoxJustifyContent.End}
+              >
+                <UserPreferencedCurrencyDisplay
+                  account={account}
+                  ethNumberOfDecimals={MAXIMUM_CURRENCY_DECIMALS}
+                  value={balanceToTranslate}
+                  type={PRIMARY}
+                  showFiat={showFiat}
+                  isAggregatedFiatOverviewBalance={getIsAggregatedFiatOverviewBalanceProp()}
+                  data-testid="first-currency-display"
+                  privacyMode={privacyMode}
+                />
+              </Box>
+            </Box>
+          </Box>
+          <Box className="flex" justifyContent={BoxJustifyContent.Between}>
+            <Box className="flex" alignItems={BoxAlignItems.Center}>
+              <Text
+                variant={TextVariant.BodySm}
+                color={TextColor.TextAlternative}
+                data-testid="account-list-address"
+              >
+                {shortenAddress(normalizeSafeAddress(account.address))}
+              </Text>
+            </Box>
+            <Box className="network-indicator">
+              <AccountNetworkIndicator scopes={account.scopes} />
+            </Box>
+          </Box>
+          {showAccountLabels && accountLabels.length > 0 ? (
+            <Box flexDirection={BoxFlexDirection.Row} className="flex">
+              {accountLabels.map(({ label, icon }) => {
+                return (
+                  <Tag
+                    data-testid={`account-list-item-tag-${account.id}-${label}`}
+                    key={label}
+                    label={label}
+                    textVariant={TextVariant.BodyXs}
+                    startIconName={icon}
+                  />
+                );
+              })}
+            </Box>
+          ) : null}
+        </Box>
+      </Box>
+
+      <Box
+        className="flex"
+        justifyContent={BoxJustifyContent.Center}
+        alignItems={BoxAlignItems.Center}
+      >
+        {menuType === AccountListItemMenuTypes.None ? null : (
+          <ButtonIcon
+            ariaLabel={`${account.metadata.name} ${t('options')}`}
+            iconName={IconName.MoreVertical}
+            size={ButtonIconSize.Sm}
+            ref={setAccountListItemMenuRef}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!accountOptionsMenuOpen) {
+                trackEvent({
+                  event: MetaMetricsEventName.AccountDetailMenuOpened,
+                  category: MetaMetricsEventCategory.Navigation,
+                  properties: {
+                    location: 'Account Options',
+                    hd_entropy_index: hdEntropyIndex,
+                  },
+                });
+              }
+              setAccountOptionsMenuOpen(!accountOptionsMenuOpen);
+            }}
+            data-testid="account-list-item-menu-button"
+          />
+        )}
+        {menuType === AccountListItemMenuTypes.Account && (
+          <AccountListItemMenu
+            anchorElement={accountListItemMenuElement}
+            account={account}
+            onClose={() => setAccountOptionsMenuOpen(false)}
+            isOpen={accountOptionsMenuOpen}
+            isRemovable={
+              account.metadata.keyring.type !== KeyringType.hdKeyTree &&
+              !isSolanaAccount(account)
+            }
+            closeMenu={closeMenu}
+            isPinned={isPinned}
+            isHidden={isHidden}
+            isConnected={isConnected}
+          />
+        )}
+      </Box>
+    </Box>
+  );
+};
+
+AccountListItem.propTypes = {
+  /**
+   * An account object that has name, address, and balance data
+   */
+  account: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    address: PropTypes.string.isRequired,
+    balance: PropTypes.string.isRequired,
+    metadata: PropTypes.shape({
+      name: PropTypes.string.isRequired,
+      snap: PropTypes.shape({
+        id: PropTypes.string.isRequired,
+        name: PropTypes.string,
+        enabled: PropTypes.bool,
+      }),
+      keyring: PropTypes.shape({
+        type: PropTypes.string.isRequired,
+      }).isRequired,
+    }).isRequired,
+    scopes: PropTypes.arrayOf(PropTypes.string).isRequired,
+  }).isRequired,
+  /**
+   * Represents if this account is currently selected
+   */
+  selected: PropTypes.bool.isRequired,
+  /**
+   * Function to execute when the item is clicked
+   */
+  onClick: PropTypes.func,
+  /**
+   * Function that closes the menu
+   */
+  closeMenu: PropTypes.func,
+  /**
+   * File location of the avatar icon
+   */
+  connectedAvatar: PropTypes.string,
+  /**
+   * Represents the type of menu to be rendered
+   */
+  menuType: PropTypes.string,
+  /**
+   * Represents pinned accounts
+   */
+  isPinned: PropTypes.bool,
+  /**
+   * Represents hidden accounts
+   */
+  isHidden: PropTypes.bool,
+  /**
+   * Represents current tab origin
+   */
+  currentTabOrigin: PropTypes.string,
+  /**
+   * Represents active accounts
+   */
+  isActive: PropTypes.bool,
+  /**
+   * Represents start accessory
+   */
+  startAccessory: PropTypes.node,
+  /**
+   * Determines if list item should be scrolled to when selected
+   */
+  shouldScrollToWhenSelected: PropTypes.bool,
+  /**
+   * Determines if list balance should be obfuscated
+   */
+  privacyMode: PropTypes.bool,
+  /**
+   * Determines if the connected status should be shown
+   */
+  showConnectedStatus: PropTypes.bool,
+  /**
+   * Determines if account labels should be shown
+   */
+  showAccountLabels: PropTypes.bool,
+};
+
+AccountListItem.displayName = 'AccountListItem';
+
+export default React.memo(AccountListItem);

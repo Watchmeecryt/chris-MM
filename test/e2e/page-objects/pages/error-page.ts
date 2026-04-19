@@ -1,0 +1,101 @@
+import { Driver } from '../../webdriver/driver';
+
+const FEEDBACK_MESSAGE =
+  'Message: Unable to find value of key "developerOptions" for locale "en"';
+
+class ErrorPage {
+  private readonly driver: Driver;
+
+  // Locators
+  private readonly errorPageTitle = '[data-testid="error-page-title"]';
+
+  private readonly errorMessage = '[data-testid="error-page-error-message"]';
+
+  private readonly sendReportToSentryButton =
+    '[data-testid="error-page-describe-what-happened-button"]';
+
+  private readonly sentryReportForm =
+    '[data-testid="error-page-sentry-feedback-modal"]';
+
+  private readonly contactSupportButton =
+    '[data-testid="error-page-contact-support-button"]';
+
+  private readonly sentryFeedbackTextarea =
+    '[data-testid="error-page-sentry-feedback-textarea"]';
+
+  private readonly sentryFeedbackSubmitButton =
+    '[data-testid="error-page-sentry-feedback-submit-button"]';
+
+  private readonly sentryFeedbackSuccessModal =
+    '[data-testid="error-page-sentry-feedback-success-modal"]';
+
+  private readonly visitSupportDataConsentModal =
+    '[data-testid="visit-support-data-consent-modal"]';
+
+  private readonly visitSupportDataConsentModalAcceptButton =
+    '[data-testid="visit-support-data-consent-modal-accept-button"]';
+
+  private readonly visitSupportDataConsentModalRejectButton =
+    '[data-testid="visit-support-data-consent-modal-reject-button"]';
+
+  constructor(driver: Driver) {
+    this.driver = driver;
+  }
+
+  async checkPageIsLoaded(): Promise<void> {
+    try {
+      await this.driver.waitForSelector(this.errorPageTitle);
+    } catch (e) {
+      console.log('Timeout while waiting for Error page to be loaded', e);
+      throw e;
+    }
+    console.log('Error page is loaded');
+  }
+
+  async validateErrorMessage(): Promise<void> {
+    await this.driver.waitForSelector({
+      text: `Message: Unable to find value of key "developerOptions" for locale "en"`,
+      css: this.errorMessage,
+    });
+  }
+
+  async submitToSentryUserFeedbackForm(): Promise<void> {
+    console.log(`Open sentry user feedback form in error page`);
+    await this.driver.clickElement(this.sendReportToSentryButton);
+    await this.driver.waitForSelector(this.sentryReportForm);
+    await this.driver.fill(this.sentryFeedbackTextarea, FEEDBACK_MESSAGE);
+    await this.driver.clickElementAndWaitToDisappear(
+      this.sentryFeedbackSubmitButton,
+    );
+  }
+
+  async clickContactButton(): Promise<void> {
+    console.log(`Contact metamask support form in a separate page`);
+    await this.driver.waitUntilXWindowHandles(1);
+    await this.driver.findScrollToAndClickElement(this.contactSupportButton);
+  }
+
+  async consentDataToMetamaskSupport(): Promise<void> {
+    await this.driver.waitForSelector(this.visitSupportDataConsentModal);
+    await this.driver.clickElementAndWaitToDisappear(
+      this.visitSupportDataConsentModalAcceptButton,
+    );
+    // metamask, help page
+    await this.driver.waitUntilXWindowHandles(2);
+  }
+
+  async rejectDataToMetamaskSupport(): Promise<void> {
+    await this.driver.waitForSelector(this.visitSupportDataConsentModal);
+    await this.driver.clickElementAndWaitToDisappear(
+      this.visitSupportDataConsentModalRejectButton,
+    );
+    await this.driver.waitUntilXWindowHandles(2);
+  }
+
+  async waitForSentrySuccessModal(): Promise<void> {
+    await this.driver.waitForSelector(this.sentryFeedbackSuccessModal);
+    await this.driver.assertElementNotPresent(this.sentryFeedbackSuccessModal);
+  }
+}
+
+export default ErrorPage;

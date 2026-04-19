@@ -1,0 +1,274 @@
+import { Suite } from 'mocha';
+import { NetworkStatus, RpcEndpointType } from '@metamask/network-controller';
+import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
+import { withFixtures } from '../../helpers';
+import { Driver } from '../../webdriver/driver';
+import { Mockttp } from '../../mock-e2e';
+import AddNetworkRpcUrlModal from '../../page-objects/pages/dialog/add-network-rpc-url';
+import AddEditNetworkModal from '../../page-objects/pages/dialog/add-edit-network';
+import HomePage from '../../page-objects/pages/home/homepage';
+import SelectNetwork from '../../page-objects/pages/dialog/select-network';
+import { login } from '../../page-objects/flows/login.flow';
+import HeaderNavbar from '../../page-objects/pages/header-navbar';
+
+describe('Update Network:', function (this: Suite) {
+  it('update network details and validate the ui elements', async function () {
+    await withFixtures(
+      {
+        fixtures: new FixtureBuilderV2().build(),
+        title: this.test?.fullTitle(),
+      },
+      async ({ driver }: { driver: Driver }) => {
+        const inputData = {
+          networkName: 'Update Network',
+          rpcUrl: 'test',
+        };
+        await login(driver);
+        const headerNavbar = new HeaderNavbar(driver);
+        await headerNavbar.openGlobalNetworksMenu();
+
+        const selectNetworkDialog = new SelectNetwork(driver);
+        await selectNetworkDialog.checkPageIsLoaded();
+        await selectNetworkDialog.openNetworkListOptions('eip155:1337');
+        await selectNetworkDialog.openEditNetworkModal();
+
+        // Verify chain id is not editable when updating a network
+        const editNetworkModal = new AddEditNetworkModal(driver);
+        await editNetworkModal.checkPageIsLoaded();
+        await editNetworkModal.checkChainIdInputFieldIsEnabled(false);
+
+        // Update the network name and save the changes
+        await editNetworkModal.fillNetworkNameInputField(inputData.networkName);
+        await editNetworkModal.saveEditedNetwork();
+
+        // Verify the new network name is visible
+        const homePage = new HomePage(driver);
+        await homePage.checkPageIsLoaded();
+        await homePage.checkEditNetworkMessageIsDisplayed(
+          inputData.networkName,
+        );
+        await homePage.closeUseNetworkNotificationModal();
+        // Since switching networks is disabled via the networks modal in global menu, we don't need to check the selected network anymore
+        await headerNavbar.openGlobalNetworksMenu();
+
+        await selectNetworkDialog.checkPageIsLoaded();
+        await selectNetworkDialog.openNetworkListOptions('eip155:1337');
+        await selectNetworkDialog.openEditNetworkModal();
+        await editNetworkModal.checkPageIsLoaded();
+
+        // Edit the RPC URL to something invalid
+        await editNetworkModal.openAddRpcUrlModal();
+        const addNetworkRpcUrlModal = new AddNetworkRpcUrlModal(driver);
+        await addNetworkRpcUrlModal.checkPageIsLoaded();
+        await addNetworkRpcUrlModal.fillAddRpcUrlInput(inputData.rpcUrl);
+
+        // Validate the error message that appears for the invalid url format
+        await addNetworkRpcUrlModal.checkErrorMessageInvalidUrlIsDisplayed();
+
+        // Validate the Save button is disabled for the invalid url format
+        await addNetworkRpcUrlModal.checkAddRpcUrlButtonIsEnabled(false);
+      },
+    );
+  });
+
+  it('should delete added rpc url for existing network', async function () {
+    async function mockRPCURLAndChainId(mockServer: Mockttp) {
+      return [
+        await mockServer
+          .forPost('https://responsive-rpc.test/')
+          .thenCallback(() => ({
+            statusCode: 200,
+            json: {
+              id: '1694444405781',
+              jsonrpc: '2.0',
+              result: '0xa4b1',
+            },
+          })),
+        await mockServer
+          .forPost('https://arbitrum-mainnet.infura.io/')
+          .thenCallback(() => ({
+            statusCode: 200,
+            json: {
+              id: '1694444405781',
+              jsonrpc: '2.0',
+              result: '0xa4b1',
+            },
+          })),
+      ];
+    }
+    await withFixtures(
+      {
+        fixtures: new FixtureBuilderV2()
+          .withNetworkController({
+            networkConfigurationsByChainId: {
+              '0xa4b1': {
+                blockExplorerUrls: [],
+                chainId: '0xa4b1',
+                defaultRpcEndpointIndex: 0,
+                name: 'Arbitrum',
+                nativeCurrency: 'ETH',
+                rpcEndpoints: [
+                  {
+                    networkClientId: '2ce66016-8aab-47df-b27f-318c80865eb0',
+                    type: RpcEndpointType.Custom,
+                    url: 'https://arbitrum-mainnet.infura.io',
+                  },
+                  {
+                    networkClientId: '2ce66016-8aab-47df-b27f-318c80865eb1',
+                    type: RpcEndpointType.Custom,
+                    url: 'https://responsive-rpc.test/',
+                  },
+                ],
+              },
+            },
+            networksMetadata: {
+              '2ce66016-8aab-47df-b27f-318c80865eb0': {
+                EIPS: {},
+                status: NetworkStatus.Available,
+              },
+              '2ce66016-8aab-47df-b27f-318c80865eb1': {
+                EIPS: {},
+                status: NetworkStatus.Available,
+              },
+            },
+          })
+          .build(),
+        title: this.test?.fullTitle(),
+        testSpecificMock: mockRPCURLAndChainId,
+      },
+      async ({ driver }: { driver: Driver }) => {
+        await login(driver);
+        const headerNavbar = new HeaderNavbar(driver);
+        await headerNavbar.openGlobalNetworksMenu();
+
+        const selectNetworkDialog = new SelectNetwork(driver);
+        await selectNetworkDialog.checkPageIsLoaded();
+
+        // Go to Edit Menu
+        await selectNetworkDialog.openNetworkListOptions('eip155:42161');
+        await selectNetworkDialog.openEditNetworkModal();
+        const editNetworkModal = new AddEditNetworkModal(driver);
+        await editNetworkModal.checkPageIsLoaded();
+
+        // Remove the RPC
+        await editNetworkModal.removeRPCInEditNetworkModal(2);
+        await editNetworkModal.checkRpcIsDisplayed(
+          'responsive-rpc.test',
+          false,
+        );
+        await editNetworkModal.saveEditedNetwork();
+        const homePage = new HomePage(driver);
+        await homePage.checkPageIsLoaded();
+        await homePage.checkEditNetworkMessageIsDisplayed('Arbitrum');
+        await homePage.closeUseNetworkNotificationModal();
+
+        // Re-open the network menu and go back to edit the network
+        await headerNavbar.openGlobalNetworksMenu();
+
+        await selectNetworkDialog.checkPageIsLoaded();
+        await selectNetworkDialog.openNetworkListOptions('eip155:42161');
+        await selectNetworkDialog.openEditNetworkModal();
+        await editNetworkModal.checkPageIsLoaded();
+
+        // Verify the rpc endpoint is removed
+        await editNetworkModal.checkRpcIsDisplayed(
+          'responsive-rpc.test',
+          false,
+        );
+      },
+    );
+  });
+
+  it('should update added rpc url for existing network', async function () {
+    async function mockRPCURLAndChainId(mockServer: Mockttp) {
+      return [
+        await mockServer
+          .forPost('https://responsive-rpc.test/')
+          .thenCallback(() => ({
+            statusCode: 200,
+            json: {
+              id: '1694444405781',
+              jsonrpc: '2.0',
+              result: '0xa4b1',
+            },
+          })),
+      ];
+    }
+    await withFixtures(
+      {
+        fixtures: new FixtureBuilderV2()
+          .withNetworkController({
+            networkConfigurationsByChainId: {
+              '0xa4b1': {
+                blockExplorerUrls: [],
+                chainId: '0xa4b1',
+                defaultRpcEndpointIndex: 0,
+                name: 'Arbitrum',
+                nativeCurrency: 'ETH',
+                rpcEndpoints: [
+                  {
+                    networkClientId: '2ce66016-8aab-47df-b27f-318c80865eb0',
+                    type: RpcEndpointType.Custom,
+                    url: 'https://arbitrum-mainnet.infura.io',
+                  },
+                ],
+              },
+            },
+            networksMetadata: {
+              '2ce66016-8aab-47df-b27f-318c80865eb0': {
+                EIPS: {},
+                status: NetworkStatus.Available,
+              },
+            },
+          })
+          .build(),
+        title: this.test?.fullTitle(),
+        testSpecificMock: mockRPCURLAndChainId,
+      },
+      async ({ driver }: { driver: Driver }) => {
+        await login(driver);
+        const headerNavbar = new HeaderNavbar(driver);
+        await headerNavbar.openGlobalNetworksMenu();
+
+        const selectNetworkDialog = new SelectNetwork(driver);
+        await selectNetworkDialog.checkPageIsLoaded();
+
+        // Go to Edit Menu
+        await selectNetworkDialog.openNetworkListOptions('eip155:42161');
+        await selectNetworkDialog.openEditNetworkModal();
+        const editNetworkModal = new AddEditNetworkModal(driver);
+        await editNetworkModal.checkPageIsLoaded();
+
+        // Add a new rpc url and verify it appears in the dropdown
+        await editNetworkModal.openAddRpcUrlModal();
+        const addNetworkRpcUrlModal = new AddNetworkRpcUrlModal(driver);
+        await addNetworkRpcUrlModal.checkPageIsLoaded();
+        await addNetworkRpcUrlModal.fillAddRpcUrlInput(
+          'https://responsive-rpc.test',
+        );
+        await addNetworkRpcUrlModal.fillAddRpcNameInput('testName');
+        await addNetworkRpcUrlModal.checkAddRpcUrlButtonIsEnabled();
+        await addNetworkRpcUrlModal.saveAddRpcUrl();
+        await editNetworkModal.checkRpcIsDisplayed('responsive-rpc.test');
+
+        // Save the network
+        await editNetworkModal.saveEditedNetwork();
+        const homePage = new HomePage(driver);
+        await homePage.checkPageIsLoaded();
+        await homePage.checkEditNetworkMessageIsDisplayed('Arbitrum');
+        await homePage.closeUseNetworkNotificationModal();
+
+        // Re-open the network menu and go back to edit the network
+        await headerNavbar.openGlobalNetworksMenu();
+
+        await selectNetworkDialog.checkPageIsLoaded();
+        await selectNetworkDialog.openNetworkListOptions('eip155:42161');
+        await selectNetworkDialog.openEditNetworkModal();
+        await editNetworkModal.checkPageIsLoaded();
+
+        // Verify the new endpoint is still there
+        await editNetworkModal.checkRpcIsDisplayed('responsive-rpc.test');
+      },
+    );
+  });
+});

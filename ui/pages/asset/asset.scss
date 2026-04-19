@@ -1,0 +1,98 @@
+@use 'design-system';
+
+.asset {
+  &__container {
+    background-color: var(--color-background-default);
+  }
+}
+
+.asset-navigation {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  height: 64px;
+}
+
+.asset-breadcrumb {
+  @include design-system.H6;
+
+  color: var(--color-text-default);
+  background-color: inherit;
+
+  &__asset {
+    font-weight: bold;
+  }
+}
+
+.time-range-button {
+  height: 24px;
+
+  &:hover {
+    background-color: var(--color-background-default-pressed);
+  }
+
+  &__selected {
+    color: var(--color-text-default);
+    background-color: var(--color-background-default-hover);
+  }
+}
+
+.chart-up {
+  stroke: var(--color-success-default);
+}
+
+.chart-down {
+  stroke: var(--color-error-default);
+}
+
+.asset-page__back-button {
+  margin-right: 4px;
+}
+
+.asset-page__balance-heading {
+  padding: 4px 0 4px 16px;
+}
+
+.asset-page__divider {
+  height: 1px;
+  border-bottom-width: 0;
+  margin-inline: 16px;
+}
+
+.asset-page__details-heading {
+  padding-bottom: 8px;
+}
+
+.asset-page__activity-heading {
+  padding-inline: 16px;
+}
+
+.asset-page__spending-caps {
+  text-decoration: none;
+
+  &:hover {
+    color: var(--color-primary-alternative);
+    text-decoration: underline;
+  }
+}
+
+.asset-chart__empty-or-loading-state-container {
+  aspect-ratio: 2.6;
+  margin-top: 28px;
+  margin-bottom: 28px;
+  padding-right: 1rem;
+  padding-left: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.asset-chart__empty-state-content {
+  margin-top: -16px;
+  align-self: flex-start;
+}
+
+.asset-chart__skeleton {
+  width: 100%;
+  height: 100%;
+  border-radius: 1rem;
+}

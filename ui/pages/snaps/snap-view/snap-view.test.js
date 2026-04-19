@@ -1,0 +1,87 @@
+import * as React from 'react';
+import configureMockStore from 'redux-mock-store';
+import thunk from 'redux-thunk';
+import { waitFor, screen } from '@testing-library/react';
+import { renderWithProvider } from '../../../../test/lib/render-helpers-navigate';
+import mockState from '../../../../test/data/mock-state.json';
+import { enLocale as messages } from '../../../../test/lib/i18n-helpers';
+import SnapView from './snap-view';
+
+jest.mock('../../../store/actions.ts', () => {
+  return {
+    disableSnap: jest.fn(),
+    enableSnap: jest.fn(),
+    removeSnap: jest.fn(),
+    disconnectOriginFromSnap: jest.fn(),
+    getPhishingResult: jest.fn().mockImplementation(() => {
+      return {
+        result: false,
+      };
+    }),
+  };
+});
+
+jest.mock('react-router-dom', () => {
+  const original = jest.requireActual('react-router-dom');
+  const snapId = 'npm:@metamask/test-snap-bip44';
+  return {
+    ...original,
+    useSearchParams: jest.fn(() => [
+      new URLSearchParams(`snapId=${encodeURIComponent(snapId)}`),
+    ]),
+    useLocation: jest.fn(() => ({
+      pathname: `/snaps/view`,
+      search: `?snapId=${encodeURIComponent(snapId)}`,
+    })),
+  };
+});
+
+const mockStore = configureMockStore([thunk])(mockState);
+
+describe('SnapView', () => {
+  it('should properly display Snap View elements', async () => {
+    const { getByText, container, getByTestId, getAllByText } =
+      renderWithProvider(<SnapView />, mockStore);
+
+    // Snap name & Snap authorship component
+    expect(getAllByText('BIP-44 Test Snap')).toHaveLength(3);
+    expect(
+      container.getElementsByClassName('snaps-authorship-expanded')?.length,
+    ).toBe(1);
+    // Snap description
+    expect(
+      getByText('An example Snap that signs messages using BLS.'),
+    ).toBeDefined();
+    // Snap website
+    await waitFor(() => {
+      const websiteElement = screen.queryByText('snaps.consensys.io');
+      expect(websiteElement).toBeDefined();
+      expect(getByText('snaps.consensys.io')).toBeDefined();
+    });
+    // Snap version info
+    expect(getByText('5.1.2')).toBeDefined();
+    // Enable Snap
+    expect(getByText(messages.enabled.message)).toBeDefined();
+    expect(container.getElementsByClassName('toggle-button')?.length).toBe(1);
+    // Permissions
+    expect(getByText(messages.permissions.message)).toBeDefined();
+    expect(
+      container.getElementsByClassName('snap-permissions-list')?.length,
+    ).toBe(1);
+    // Connected sites
+    expect(getByText(messages.connectedSites.message)).toBeDefined();
+    expect(
+      container.getElementsByClassName('connected-sites-list__content-rows')
+        ?.length,
+    ).toBe(1);
+    // Remove snap
+    expect(getByText(messages.removeSnap.message)).toBeDefined();
+    expect(getByText(messages.removeSnapDescription.message)).toBeDefined();
+    expect(
+      getByText(`${messages.remove.message} BIP-44 Test Snap`),
+    ).toBeDefined();
+    expect(getByTestId('remove-snap-button')).toHaveClass(
+      'snap-view__content__remove-button',
+    );
+  });
+});

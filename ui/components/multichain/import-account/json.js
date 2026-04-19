@@ -1,0 +1,121 @@
+import PropTypes from 'prop-types';
+import React, { useState } from 'react';
+import FileInput from 'react-simple-file-input';
+import {
+  ButtonLink,
+  TextFieldSize,
+  TextFieldType,
+  Text,
+} from '../../component-library';
+import {
+  Size,
+  TextAlign,
+  TextVariant,
+} from '../../../helpers/constants/design-system';
+import { FormTextField } from '../../component-library/form-text-field/deprecated';
+import ZENDESK_URLS from '../../../helpers/constants/zendesk-url';
+import { useI18nContext } from '../../../hooks/useI18nContext';
+import BottomButtons from './bottom-buttons';
+
+export default function JsonImportSubview({
+  importAccountFunc,
+  onActionComplete,
+  importErrorMessage,
+}) {
+  const t = useI18nContext();
+  const [password, setPassword] = useState('');
+  const [fileContents, setFileContents] = useState('');
+  const [errorMessage, setErrorMessage] = useState();
+
+  const isPrimaryDisabled = fileContents === '';
+
+  function handleKeyPress(event) {
+    if (!isPrimaryDisabled && event.key === 'Enter') {
+      event.preventDefault();
+      _importAccountFunc();
+    }
+  }
+
+  function _importAccountFunc() {
+    if (isPrimaryDisabled) {
+      setErrorMessage(t('needImportFile'));
+    } else {
+      importAccountFunc('json', [fileContents, password]);
+    }
+  }
+
+  return (
+    <>
+      <Text variant={TextVariant.bodyMd} textAlign={TextAlign.Center}>
+        {t('usedByClients')}
+        <ButtonLink
+          size={Size.inherit}
+          href={ZENDESK_URLS.IMPORTED_ACCOUNT_JSON}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {t('fileImportFail')}
+        </ButtonLink>
+      </Text>
+
+      <FileInput
+        id="file-input"
+        data-testid="file-input"
+        readAs="text"
+        onLoad={(event) => {
+          setErrorMessage();
+          setFileContents(event.target.result);
+        }}
+        style={{
+          padding: '20px 0px 12px 15%',
+          fontSize: '16px',
+          display: 'flex',
+          justifyContent: 'center',
+          width: '100%',
+        }}
+      />
+
+      <FormTextField
+        id="json-password-box"
+        size={TextFieldSize.Lg}
+        autoFocus
+        type={TextFieldType.Password}
+        helpText={errorMessage ?? importErrorMessage}
+        error
+        placeholder={t('enterOptionalPassword')}
+        value={password}
+        onChange={(event) => {
+          setPassword(event.target.value);
+        }}
+        inputProps={{
+          onKeyPress: handleKeyPress,
+        }}
+        marginBottom={4}
+      />
+
+      <BottomButtons
+        importAccountFunc={_importAccountFunc}
+        isPrimaryDisabled={isPrimaryDisabled}
+        onActionComplete={(confirmed) => {
+          setErrorMessage();
+          onActionComplete(confirmed);
+        }}
+      />
+    </>
+  );
+}
+
+JsonImportSubview.propTypes = {
+  /**
+   * Function to import the account
+   */
+  importAccountFunc: PropTypes.func.isRequired,
+  /**
+   * Executes when the key is imported
+   */
+  onActionComplete: PropTypes.func.isRequired,
+  /**
+   * Import error message
+   */
+  importErrorMessage: PropTypes.string,
+};

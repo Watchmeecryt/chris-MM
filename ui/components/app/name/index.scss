@@ -1,0 +1,47 @@
+.name {
+  border-radius: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  max-width: 100%;
+  color: var(--color-text-default);
+
+  &__clickable {
+    cursor: pointer;
+
+    &:hover {
+      .name__name {
+        color: var(--color-info-default);
+      }
+    }
+  }
+
+  &__trust-signal-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  &__warning {
+    &:hover {
+      .name__name {
+        color: var(--color-warning-default) !important;
+      }
+    }
+  }
+
+  &__malicious {
+    &:hover {
+      .name__name {
+        color: var(--color-error-default) !important;
+      }
+    }
+  }
+
+  &__value,
+  &__name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

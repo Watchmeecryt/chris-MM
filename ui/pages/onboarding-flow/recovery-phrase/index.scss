@@ -1,0 +1,103 @@
+@use "design-system";
+
+.recovery-phrase {
+  &__header {
+    grid-template-columns: 0.25fr 3.5fr 0.25fr;
+  }
+
+  &__chips {
+    grid-template-columns: 1fr 1fr 1fr;
+    column-gap: 8px;
+    row-gap: 4px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+
+    @include design-system.screen-sm-min {
+      column-gap: 8px;
+      row-gap: 8px;
+      padding-top: 24px;
+      padding-bottom: 16px;
+    }
+
+    &--hidden {
+      filter: blur(8px);
+    }
+
+    // SRP_OVERRIDE: START: custom text field style
+    .mm-text-field {
+      padding-left: 8px;
+      border-radius: 8px;
+    }
+
+    .mm-text-field:not(.mm-text-field--quiz-word) {
+      border-color: var(--color-border-muted);
+    }
+
+    .mm-text-field.mm-text-field--quiz-word {
+      cursor: pointer;
+
+      .mm-input {
+        cursor: pointer;
+      }
+    }
+
+    .mm-text-field.mm-text-field--target-index {
+      outline: 5px auto var(--color-primary-default);
+    }
+
+    .mm-text-field.mm-text-field--focused {
+      outline: 5px auto var(--color-primary-default);
+    }
+
+    .mm-input {
+      padding-right: 8px;
+      padding-left: 4px;
+    }
+    // SRP_OVERRIDE: END
+  }
+
+  &__text {
+    height: 40px;
+    font-size: var(--typography-s-body-sm-font-size);
+
+    @include design-system.screen-sm-min {
+      font-size: var(--typography-s-body-md-font-size);
+    }
+  }
+
+  &__word-index {
+    width: 16px;
+    font-size: var(--typography-s-body-sm-font-size);
+
+    @include design-system.screen-sm-min {
+      width: 20px;
+      font-size: var(--typography-s-body-md-font-size);
+    }
+  }
+
+  &__secret {
+    position: relative;
+    min-height: 216px;
+  }
+
+  &__secret-blocker-container {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+  }
+
+  &__secret-blocker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    flex-flow: column nowrap;
+    opacity: 0;
+  }
+
+  &__secret-blocker-text {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    cursor: pointer;
+  }
+}

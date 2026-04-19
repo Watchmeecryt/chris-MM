@@ -1,0 +1,125 @@
+import React from 'react';
+import PropTypes from 'prop-types';
+import classnames from 'clsx';
+import { useCurrencyDisplay } from '../../../hooks/useCurrencyDisplay';
+import { EtherDenomination } from '../../../../shared/constants/common';
+import { SensitiveText, Box } from '../../component-library';
+import {
+  AlignItems,
+  Display,
+  FlexWrap,
+  TextVariant,
+} from '../../../helpers/constants/design-system';
+
+/* eslint-disable jsdoc/require-param-name */
+// eslint-disable-next-line jsdoc/require-param
+/** @param {PropTypes.InferProps<typeof CurrencyDisplayPropTypes>>} */
+export default function CurrencyDisplay({
+  account,
+  value,
+  displayValue,
+  'data-testid': dataTestId,
+  style,
+  className,
+  prefix,
+  hideLabel,
+  hideTitle,
+  numberOfDecimals,
+  denomination,
+  currency,
+  suffix,
+  textProps = {},
+  suffixProps = {},
+  isAggregatedFiatOverviewBalance = false,
+  privacyMode = false,
+  onClick,
+  chainId,
+  ...props
+}) {
+  const [title, parts] = useCurrencyDisplay(
+    value,
+    {
+      account,
+      displayValue,
+      prefix,
+      numberOfDecimals,
+      hideLabel,
+      denomination,
+      currency,
+      suffix,
+      isAggregatedFiatOverviewBalance,
+    },
+    chainId,
+  );
+
+  return (
+    <Box
+      className={classnames('currency-display-component', className)}
+      data-testid={dataTestId}
+      style={style}
+      title={(!hideTitle && !privacyMode && title) || null}
+      display={Display.Flex}
+      alignItems={AlignItems.center}
+      flexWrap={FlexWrap.Wrap}
+      {...props}
+    >
+      <SensitiveText
+        as="span"
+        className="currency-display-component__text cursor-pointer transition-colors duration-200 hover:text-text-alternative"
+        ellipsis
+        variant={TextVariant.inherit}
+        isHidden={privacyMode}
+        data-testid="account-value-and-suffix"
+        onClick={onClick}
+        {...textProps}
+      >
+        {parts.prefix}
+        {parts.value}
+      </SensitiveText>
+      {parts.suffix ? (
+        <SensitiveText
+          as="span"
+          className={`${
+            privacyMode
+              ? 'currency-display-component__text'
+              : 'currency-display-component__suffix'
+          } cursor-pointer transition-colors duration-200 hover:text-text-alternative`}
+          marginInlineStart={privacyMode ? 0 : 1}
+          variant={TextVariant.inherit}
+          isHidden={privacyMode}
+          onClick={onClick}
+          {...suffixProps}
+        >
+          {parts.suffix}
+        </SensitiveText>
+      ) : null}
+    </Box>
+  );
+}
+
+const CurrencyDisplayPropTypes = {
+  className: PropTypes.string,
+  account: PropTypes.object,
+  currency: PropTypes.string,
+  'data-testid': PropTypes.string,
+  denomination: PropTypes.oneOf([
+    EtherDenomination.GWEI,
+    EtherDenomination.ETH,
+  ]),
+  displayValue: PropTypes.string,
+  hideLabel: PropTypes.bool,
+  hideTitle: PropTypes.bool,
+  numberOfDecimals: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  prefix: PropTypes.string,
+  style: PropTypes.object,
+  suffix: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
+  value: PropTypes.string,
+  textProps: PropTypes.object,
+  suffixProps: PropTypes.object,
+  isAggregatedFiatOverviewBalance: PropTypes.bool,
+  privacyMode: PropTypes.bool,
+  onClick: PropTypes.func,
+  chainId: PropTypes.string,
+};
+
+CurrencyDisplay.propTypes = CurrencyDisplayPropTypes;
