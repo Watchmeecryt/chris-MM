@@ -9118,6 +9118,9 @@
   "privateBalanceEncryptedHint": {
     "message": "On-chain balance is encrypted."
   },
+  "privateBalanceConfidentialBadgeTitle": {
+    "message": "Confidential (shielded) token"
+  },
   "privateBalanceEvmOnly": {
     "message": "Select an Ethereum account to view private balances."
   },

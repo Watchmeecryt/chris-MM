@@ -1,4 +1,6 @@
 import browser from 'webextension-polyfill';
+import type { Hex } from '@metamask/utils';
+import { CONFIDENTIAL_ZERO_HANDLE } from '../../shared/lib/confidential-erc7984/registry';
 
 export const CONFIDENTIAL_REVEALED_BALANCES_KEY = 'confidentialErc7984RevealedBalances';
 export const CONFIDENTIAL_PENDING_DECRYPT_KEY = 'confidentialErc7984PendingDecryptRows';
@@ -8,7 +10,7 @@ export const CONFIDENTIAL_PENDING_DECRYPT_AT_KEY = 'confidentialErc7984PendingDe
 export const CONFIDENTIAL_PENDING_DECRYPT_STALE_MS = 4 * 60 * 1000;
 /** When true, UI shows a masked balance; cleartext remains in {@link CONFIDENTIAL_REVEALED_BALANCES_KEY}. */
 export const CONFIDENTIAL_BALANCE_MASKED_KEY = 'confidentialErc7984BalanceMasked';
-/** `rowKey` → `confidentialBalanceOf` handle (lowercase hex) at the time cleartext was stored — used to invalidate stale reveals. */
+/** `rowKey` → `confidentialBalanceOf` handle (lowercase hex) saved when cleartext was stored — compared on each refetch to drop stale reveals. */
 export const CONFIDENTIAL_REVEALED_HANDLE_SNAPSHOT_KEY =
   'confidentialErc7984RevealedHandleSnapshots';
 
@@ -122,6 +124,47 @@ export async function loadRevealedHandleSnapshots(): Promise<ConfidentialReveale
   const { [CONFIDENTIAL_REVEALED_HANDLE_SNAPSHOT_KEY]: raw } =
     await browser.storage.local.get(CONFIDENTIAL_REVEALED_HANDLE_SNAPSHOT_KEY);
   return (raw as ConfidentialRevealedHandleSnapshotsMap) ?? {};
+}
+
+export type RefetchBalanceHandleRow = {
+  key: string;
+  chainIdHex: Hex;
+  tokenAddress: string;
+};
+
+/**
+ * zpayy-style `refetch()`: re-read `confidentialBalanceOf` per row; if cleartext is stored and the
+ * live handle no longer matches the handle from the last successful decrypt, clear that row (no EIP-712).
+ */
+export async function invalidateStaleRevealsAfterHandleRefetch(
+  rows: RefetchBalanceHandleRow[],
+  fetchHandle: (
+    chainIdHex: Hex,
+    tokenAddress: string,
+    account: string,
+  ) => Promise<string | null | undefined>,
+  account: string,
+): Promise<void> {
+  const [revealed, handleWhenDecrypted] = await Promise.all([
+    loadConfidentialRevealedBalances(),
+    loadRevealedHandleSnapshots(),
+  ]);
+  for (const row of rows) {
+    if (!revealed[row.key]) {
+      continue;
+    }
+    let currentLower: string;
+    try {
+      const h = await fetchHandle(row.chainIdHex, row.tokenAddress, account);
+      currentLower = (h ?? CONFIDENTIAL_ZERO_HANDLE).toLowerCase();
+    } catch {
+      continue;
+    }
+    const savedLower = handleWhenDecrypted[row.key]?.toLowerCase();
+    if (savedLower === undefined || savedLower !== currentLower) {
+      await clearConfidentialRevealedRow(row.key);
+    }
+  }
 }
 
 export async function saveConfidentialRevealedDisplay(

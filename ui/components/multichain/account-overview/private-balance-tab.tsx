@@ -44,12 +44,11 @@ import {
   CONFIDENTIAL_PENDING_DECRYPT_KEY,
   CONFIDENTIAL_REVEALED_BALANCES_KEY,
   CONFIDENTIAL_REVEALED_HANDLE_SNAPSHOT_KEY,
-  clearConfidentialRevealedRow,
   confidentialRevealedRowKey,
+  invalidateStaleRevealsAfterHandleRefetch,
   loadBalanceMaskedMap,
   loadConfidentialRevealedBalances,
   loadPendingDecryptRows,
-  loadRevealedHandleSnapshots,
   pruneStalePendingDecryptRows,
   removePendingDecryptRow,
   saveConfidentialRevealedDisplay,
@@ -101,7 +100,7 @@ export function PrivateBalanceTab({
     [enabledChainIds.join(',')],
   );
 
-  /** Registry rows only — no background handle scan. Handles are read on decrypt / wrap / snapshot check. */
+  /** Registry rows only — live handles are refetched like zpayy `confBalance.refetch()` (no auto EIP-712). */
   const holdings = useMemo((): HoldingRow[] => {
     if (!evmAddress) {
       return [];
@@ -207,30 +206,20 @@ export function PrivateBalanceTab({
     [evmAddress, setUnwrapFinalizeHint],
   );
 
-  const invalidateStaleRevealIfHandleChanged = useCallback(
-    async (row: HoldingRow) => {
-      if (!evmAddress) {
+  const refetchHandlesAndInvalidateReveals = useCallback(
+    async (rows: HoldingRow[]) => {
+      if (!evmAddress || rows.length === 0) {
         return;
       }
-      const k = row.key;
-      const snapshots = await loadRevealedHandleSnapshots();
-      const snap = snapshots[k];
-      if (snap === undefined) {
-        return;
-      }
-      try {
-        const h = await confidentialErc7984GetBalanceHandle(
-          row.chainIdHex,
-          row.token.address,
-          evmAddress,
-        );
-        const cur = (h ?? CONFIDENTIAL_ZERO_HANDLE).toLowerCase();
-        if (snap !== cur) {
-          await clearConfidentialRevealedRow(k);
-        }
-      } catch {
-        /* RPC — retry on next scheduled tick */
-      }
+      await invalidateStaleRevealsAfterHandleRefetch(
+        rows.map((r) => ({
+          key: r.key,
+          chainIdHex: r.chainIdHex,
+          tokenAddress: r.token.address,
+        })),
+        confidentialErc7984GetBalanceHandle,
+        evmAddress as string,
+      );
     },
     [evmAddress],
   );
@@ -239,16 +228,35 @@ export function PrivateBalanceTab({
     (row: HoldingRow) => {
       shieldHandleRefreshTimeoutsRef.current.forEach(clearTimeout);
       shieldHandleRefreshTimeoutsRef.current = [];
-      const delays = [0, 4000, 12000, 25000];
+      const delays = [0, 2500, 8000, 20000, 45000];
       for (const ms of delays) {
         const id = setTimeout(() => {
-          void invalidateStaleRevealIfHandleChanged(row);
+          void refetchHandlesAndInvalidateReveals([row]);
         }, ms);
         shieldHandleRefreshTimeoutsRef.current.push(id);
       }
     },
-    [invalidateStaleRevealIfHandleChanged],
+    [refetchHandlesAndInvalidateReveals],
   );
+
+  useEffect(() => {
+    if (!evmAddress || holdings.length === 0) {
+      return undefined;
+    }
+    const POLL_MS = 12_000;
+    const run = () => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+      void refetchHandlesAndInvalidateReveals(holdings);
+    };
+    const id = setInterval(run, POLL_MS);
+    document.addEventListener('visibilitychange', run);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', run);
+    };
+  }, [evmAddress, holdings, refetchHandlesAndInvalidateReveals]);
 
   useEffect(() => {
     return () => {
@@ -355,55 +363,6 @@ export function PrivateBalanceTab({
       window.removeEventListener('focus', mergeDecryptFromStorage);
     };
   }, [evmAddress]);
-
-  useEffect(() => {
-    if (!evmAddress) {
-      return;
-    }
-    let cancelled = false;
-    const prefix = `${evmAddress.toLowerCase()}:`;
-
-    const run = async () => {
-      const revealed = await loadConfidentialRevealedBalances();
-      const snapshots = await loadRevealedHandleSnapshots();
-      for (const k of Object.keys(revealed)) {
-        if (!k.startsWith(prefix)) {
-          continue;
-        }
-        const row = holdings.find((h) => h.key === k);
-        if (!row) {
-          if (!cancelled) {
-            await clearConfidentialRevealedRow(k);
-          }
-          continue;
-        }
-        let curHandle: string;
-        try {
-          const h = await confidentialErc7984GetBalanceHandle(
-            row.chainIdHex,
-            row.token.address,
-            evmAddress,
-          );
-          curHandle = h ?? CONFIDENTIAL_ZERO_HANDLE;
-        } catch {
-          continue;
-        }
-        if (cancelled) {
-          return;
-        }
-        const snap = snapshots[k];
-        const cur = curHandle.toLowerCase();
-        if (snap !== undefined && snap !== cur) {
-          await clearConfidentialRevealedRow(k);
-        }
-      }
-    };
-
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [evmAddress, holdings]);
 
   const onReveal = useCallback(
     async (row: HoldingRow) => {
@@ -584,18 +543,42 @@ export function PrivateBalanceTab({
                 gap={3}
                 className="items-center"
               >
-                {iconSrc ? (
-                  <img
-                    src={iconSrc}
-                    alt=""
-                    width={36}
-                    height={36}
-                    className="rounded-full shrink-0 object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                ) : null}
+                <Box className="relative h-9 w-9 shrink-0">
+                  {iconSrc ? (
+                    <img
+                      src={iconSrc}
+                      alt=""
+                      width={36}
+                      height={36}
+                      className="h-9 w-9 rounded-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <Box
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-muted bg-muted text-xs font-medium uppercase"
+                      title={row.token.symbol}
+                    >
+                      <Text
+                        variant={TextVariant.BodyXs}
+                        color={TextColor.TextAlternative}
+                      >
+                        {row.token.symbol.slice(0, 2)}
+                      </Text>
+                    </Box>
+                  )}
+                  <Box
+                    className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-muted bg-background-default shadow-sm"
+                    title={t('privateBalanceConfidentialBadgeTitle')}
+                  >
+                    <Icon
+                      name={IconName.Lock}
+                      size={IconSize.Xs}
+                      color={IconColor.iconDefault}
+                    />
+                  </Box>
+                </Box>
                 <Text variant={TextVariant.BodyMd} color={TextColor.TextDefault}>
                   {row.token.symbol} · {chainName}
                 </Text>
