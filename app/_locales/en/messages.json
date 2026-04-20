@@ -9127,6 +9127,24 @@
   "privateBalanceIntro": {
     "message": "Confidential tokens on your enabled networks (from the confidential token list). Tap Decrypt to fetch your current on-chain balance handle and show the amount (signature required)."
   },
+  "privateBalanceDecryptAll": {
+    "message": "Decrypt all"
+  },
+  "privateBalanceDecryptAllNoneNeeded": {
+    "message": "Balances here are already revealed. Use the eye control above to hide or show amounts, or change your balance with Send or Shield."
+  },
+  "privateBalanceVisibilityHideAllTitle": {
+    "message": "Hide all revealed amounts"
+  },
+  "privateBalanceVisibilityShowAllTitle": {
+    "message": "Show all revealed amounts"
+  },
+  "privateBalanceDecryptAllNoBalances": {
+    "message": "No encrypted balance to decrypt for this account on your enabled networks. Use Shield to hold confidential tokens first."
+  },
+  "privateBalanceDecryptAllFailed": {
+    "message": "Could not reveal balances. Check errors on each token or try again."
+  },
   "privateBalanceReveal": {
     "message": "Decrypt"
   },

@@ -52,7 +52,7 @@ import {
   pruneStalePendingDecryptRows,
   removePendingDecryptRow,
   saveConfidentialRevealedDisplay,
-  setBalanceMasked,
+  setBalancesMaskedForKeys,
 } from '../../../helpers/confidential-erc7984-revealed-storage';
 import {
   LEGACY_PRIVATE_BALANCE_UNWRAP_LOCAL_KEY,
@@ -177,6 +177,10 @@ export function PrivateBalanceTab({
     tab: 0 | 1;
   } | null>(null);
   const [shieldTabBanner, setShieldTabBanner] = useState<string | null>(null);
+  const [batchDecryptPending, setBatchDecryptPending] = useState(false);
+  const [batchDecryptError, setBatchDecryptError] = useState<string | null>(
+    null,
+  );
   const shieldHandleRefreshTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>(
     [],
   );
@@ -364,97 +368,197 @@ export function PrivateBalanceTab({
     };
   }, [evmAddress]);
 
-  const onReveal = useCallback(
-    async (row: HoldingRow) => {
-      const { key, chainIdHex, token } = row;
-      const chainIdNumber = Number(hexToBigInt(chainIdHex));
-      await addPendingDecryptRow(key);
-      setDecryptByKey((prev) => ({
-        ...prev,
-        [key]: {
-          display: prev[key]?.display ?? null,
-          error: null,
-          pending: true,
-          masked: prev[key]?.masked,
-        },
-      }));
-      try {
-        const freshHandle = await confidentialErc7984GetBalanceHandle(
-          chainIdHex,
-          token.address,
-          evmAddress as string,
-        );
-        if (
-          !freshHandle ||
-          freshHandle.toLowerCase() === CONFIDENTIAL_ZERO_HANDLE.toLowerCase()
-        ) {
-          throw new Error('No confidential balance to decrypt.');
-        }
-        const prepare = await relayerUserDecryptPrepareForChain(
-          { handles: [freshHandle], contractAddresses: [token.address] },
-          chainIdNumber,
-        );
-        const typedData = toTypedDataV4Params(
-          prepare.eip712 as Record<string, unknown>,
-        );
-        const typedDataJsonString = canonicalStringify(typedData);
-        const signature = await confidentialErc7984SignTypedDataV4(
-          chainIdHex,
-          evmAddress as string,
-          typedDataJsonString,
-        );
-        const result = await relayerUserDecryptCompleteForChain(
-          {
-            requestId: prepare.requestId,
-            signature,
-            userAddress: evmAddress as string,
-          },
-          chainIdNumber,
-        );
-        const amount = cleartextFromUserDecryptResult(result, freshHandle);
-        const display = stringifyBalance(amount.toString(), token.decimals);
-        await saveConfidentialRevealedDisplay(key, display, freshHandle);
-        setDecryptByKey((prev) => ({
-          ...prev,
-          [key]: { display, error: null, pending: false, masked: false },
-        }));
-      } catch (e) {
-        await removePendingDecryptRow(key);
-        const rawMsg = e instanceof Error ? e.message : String(e);
-        const isGatewayNotReady =
-          /not ready for decryption|gateway chain|503|response_timed_out/i.test(
-            rawMsg,
-          );
-        const errorMessage = isGatewayNotReady
-          ? t('privateBalanceDecryptGatewayNotReady')
-          : rawMsg || t('privateBalanceDecryptFailed');
-        setDecryptByKey((prev) => ({
-          ...prev,
-          [key]: {
-            display: prev[key]?.display ?? null,
-            error: errorMessage,
-            pending: false,
-            masked: prev[key]?.masked,
-          },
-        }));
+  /**
+   * Batch user-decrypt: one `prepare` + one EIP-712 signature + one `complete` per chain.
+   * Requires proxy `userDecrypt` to use `handleContractPairs` (each handle with its token contract).
+   */
+  const onDecryptAllBalances = useCallback(async () => {
+    if (!evmAddress || batchDecryptPending) {
+      return;
+    }
+    setBatchDecryptError(null);
+    setBatchDecryptPending(true);
+    try {
+      const targets = holdings.filter((h) => !decryptByKey[h.key]?.display);
+      if (targets.length === 0) {
+        setBatchDecryptError(t('privateBalanceDecryptAllNoneNeeded'));
+        return;
       }
-    },
-    [evmAddress, t],
-  );
+      const withHandles: { row: HoldingRow; handle: string }[] = [];
+      for (const row of targets) {
+        try {
+          const h = await confidentialErc7984GetBalanceHandle(
+            row.chainIdHex,
+            row.token.address,
+            evmAddress as string,
+          );
+          if (
+            h &&
+            h.toLowerCase() !== CONFIDENTIAL_ZERO_HANDLE.toLowerCase()
+          ) {
+            withHandles.push({ row, handle: h });
+          }
+        } catch {
+          /* skip row — RPC */
+        }
+      }
+      if (withHandles.length === 0) {
+        setBatchDecryptError(t('privateBalanceDecryptAllNoBalances'));
+        return;
+      }
+      const byChain = new Map<number, { row: HoldingRow; handle: string }[]>();
+      for (const item of withHandles) {
+        const n = Number(hexToBigInt(item.row.chainIdHex));
+        const list = byChain.get(n) ?? [];
+        list.push(item);
+        byChain.set(n, list);
+      }
+      const chainIds = Array.from(byChain.keys()).sort((a, b) => a - b);
+      for (const chainIdNumber of chainIds) {
+        const items = byChain.get(chainIdNumber) ?? [];
+        if (items.length === 0) {
+          continue;
+        }
+        const chainIdHex = items[0].row.chainIdHex;
+        for (const { row } of items) {
+          await addPendingDecryptRow(row.key);
+          setDecryptByKey((prev) => ({
+            ...prev,
+            [row.key]: {
+              display: prev[row.key]?.display ?? null,
+              error: null,
+              pending: true,
+              masked: prev[row.key]?.masked,
+            },
+          }));
+        }
+        try {
+          const handles = items.map((i) => i.handle);
+          const contractAddresses = items.map((i) => i.row.token.address);
+          const prepare = await relayerUserDecryptPrepareForChain(
+            { handles, contractAddresses },
+            chainIdNumber,
+          );
+          const typedData = toTypedDataV4Params(
+            prepare.eip712 as Record<string, unknown>,
+          );
+          const typedDataJsonString = canonicalStringify(typedData);
+          const signature = await confidentialErc7984SignTypedDataV4(
+            chainIdHex,
+            evmAddress as string,
+            typedDataJsonString,
+          );
+          const result = await relayerUserDecryptCompleteForChain(
+            {
+              requestId: prepare.requestId,
+              signature,
+              userAddress: evmAddress as string,
+            },
+            chainIdNumber,
+          );
+          for (const { row, handle } of items) {
+            try {
+              const amount = cleartextFromUserDecryptResult(result, handle);
+              const display = stringifyBalance(
+                amount.toString(),
+                row.token.decimals,
+              );
+              await saveConfidentialRevealedDisplay(row.key, display, handle);
+              setDecryptByKey((prev) => ({
+                ...prev,
+                [row.key]: {
+                  display,
+                  error: null,
+                  pending: false,
+                  masked: false,
+                },
+              }));
+            } catch (e) {
+              await removePendingDecryptRow(row.key);
+              const rawMsg = e instanceof Error ? e.message : String(e);
+              setDecryptByKey((prev) => ({
+                ...prev,
+                [row.key]: {
+                  display: prev[row.key]?.display ?? null,
+                  error: rawMsg,
+                  pending: false,
+                  masked: prev[row.key]?.masked,
+                },
+              }));
+            }
+          }
+        } catch (e) {
+          const rawMsg = e instanceof Error ? e.message : String(e);
+          const isGatewayNotReady =
+            /not ready for decryption|gateway chain|503|response_timed_out/i.test(
+              rawMsg,
+            );
+          const errorMessage = isGatewayNotReady
+            ? t('privateBalanceDecryptGatewayNotReady')
+            : rawMsg || t('privateBalanceDecryptFailed');
+          for (const { row } of items) {
+            await removePendingDecryptRow(row.key);
+            setDecryptByKey((prev) => ({
+              ...prev,
+              [row.key]: {
+                display: prev[row.key]?.display ?? null,
+                error: errorMessage,
+                pending: false,
+                masked: prev[row.key]?.masked,
+              },
+            }));
+          }
+        }
+      }
+    } finally {
+      setBatchDecryptPending(false);
+    }
+  }, [batchDecryptPending, decryptByKey, evmAddress, holdings, t]);
 
-  const onToggleBalanceMask = useCallback(async (rowKey: string, masked: boolean) => {
-    await setBalanceMasked(rowKey, masked);
+  /** One control for all revealed rows: hide cleartext everywhere or show again (persists in one storage write). */
+  const onToggleAllRevealedVisibility = useCallback(async () => {
+    let rowKeys: string[] = [];
+    let nextMasked = false;
+
     setDecryptByKey((prev) => {
-      const cur = prev[rowKey];
-      if (!cur) {
+      rowKeys = holdings
+        .filter((h) => Boolean(prev[h.key]?.display))
+        .map((h) => h.key);
+      if (rowKeys.length === 0) {
         return prev;
       }
-      return {
-        ...prev,
-        [rowKey]: { ...cur, masked },
-      };
+      const anyUnmasked = rowKeys.some((k) => !prev[k]?.masked);
+      nextMasked = anyUnmasked;
+      const next = { ...prev };
+      for (const k of rowKeys) {
+        const cur = next[k];
+        if (cur) {
+          next[k] = { ...cur, masked: nextMasked };
+        }
+      }
+      return next;
     });
-  }, []);
+
+    if (rowKeys.length === 0) {
+      return;
+    }
+
+    try {
+      await setBalancesMaskedForKeys(rowKeys, nextMasked);
+    } catch {
+      setDecryptByKey((prev) => {
+        const next = { ...prev };
+        const revertMasked = !nextMasked;
+        for (const k of rowKeys) {
+          const cur = next[k];
+          if (cur) {
+            next[k] = { ...cur, masked: revertMasked };
+          }
+        }
+        return next;
+      });
+    }
+  }, [holdings]);
 
   if (!evmAddress) {
     return (
@@ -482,6 +586,14 @@ export function PrivateBalanceTab({
   const privateBalanceListBannerText =
     wrapTarget?.tab === 0 ? shieldTabBanner : unwrapFinalizeHint;
 
+  const revealedRowKeys = holdings.filter((h) =>
+    Boolean(decryptByKey[h.key]?.display),
+  );
+  const canDecryptMore = holdings.some((h) => !decryptByKey[h.key]?.display);
+  const anyRevealedUnmasked = revealedRowKeys.some(
+    (h) => !decryptByKey[h.key]?.masked,
+  );
+
   return (
     <>
       <Box
@@ -490,12 +602,76 @@ export function PrivateBalanceTab({
         padding={4}
         className="private-balance-tab"
       >
-        <Text variant={TextVariant.BodySm} color={TextColor.TextAlternative}>
-          {t('privateBalanceIntro')}
-        </Text>
-        {privateBalanceListBannerText ? (
-          <Text variant={TextVariant.BodySm} color={TextColor.TextDefault}>
-            {privateBalanceListBannerText}
+        <Box
+          flexDirection={BoxFlexDirection.Row}
+          flexWrap="wrap"
+          gap={2}
+          className="w-full items-center justify-between"
+        >
+          {privateBalanceListBannerText ? (
+            <Text
+              variant={TextVariant.BodySm}
+              color={TextColor.TextDefault}
+              className="min-w-0 flex-1"
+            >
+              {privateBalanceListBannerText}
+            </Text>
+          ) : (
+            <Box className="min-w-0 flex-1" />
+          )}
+          <Box
+            flexDirection={BoxFlexDirection.Row}
+            gap={2}
+            className="shrink-0 items-center"
+          >
+            {revealedRowKeys.length > 0 ? (
+              <Button
+                variant={ButtonVariant.Secondary}
+                onClick={() => void onToggleAllRevealedVisibility()}
+                disabled={batchDecryptPending}
+                aria-label={
+                  anyRevealedUnmasked
+                    ? t('privateBalanceHide')
+                    : t('privateBalanceShow')
+                }
+                title={
+                  anyRevealedUnmasked
+                    ? t('privateBalanceVisibilityHideAllTitle')
+                    : t('privateBalanceVisibilityShowAllTitle')
+                }
+                className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center !px-3"
+              >
+                <Icon
+                  name={
+                    anyRevealedUnmasked ? IconName.EyeSlash : IconName.Eye
+                  }
+                  size={IconSize.Sm}
+                  color={IconColor.iconDefault}
+                />
+              </Button>
+            ) : null}
+            {canDecryptMore ? (
+              <Button
+                variant={ButtonVariant.Primary}
+                onClick={() => void onDecryptAllBalances()}
+                disabled={batchDecryptPending}
+                className="inline-flex shrink-0 flex-row items-center justify-center gap-2"
+              >
+                <Icon
+                  name={IconName.Eye}
+                  size={IconSize.Sm}
+                  color={IconColor.iconInverse}
+                />
+                {batchDecryptPending
+                  ? t('privateBalanceDecrypting')
+                  : t('privateBalanceDecryptAll')}
+              </Button>
+            ) : null}
+          </Box>
+        </Box>
+        {batchDecryptError ? (
+          <Text variant={TextVariant.BodySm} color={TextColor.ErrorDefault}>
+            {batchDecryptError}
           </Text>
         ) : null}
         {holdings.map((row) => {
@@ -505,30 +681,7 @@ export function PrivateBalanceTab({
             row.chainIdHex;
           const hasDisplay = Boolean(d?.display);
           const isMasked = Boolean(d?.masked);
-          const primaryDecryptLabel = d?.pending
-            ? t('privateBalanceDecrypting')
-            : hasDisplay
-              ? isMasked
-                ? t('privateBalanceShow')
-                : t('privateBalanceHide')
-              : t('privateBalanceReveal');
-          const onPrimaryDecrypt = () => {
-            if (d?.pending) {
-              return;
-            }
-            if (!hasDisplay) {
-              onReveal(row);
-              return;
-            }
-            onToggleBalanceMask(row.key, !isMasked);
-          };
-          const decryptActionIcon = d?.pending
-            ? IconName.Clock
-            : !hasDisplay
-              ? IconName.Eye
-              : isMasked
-                ? IconName.Eye
-                : IconName.EyeSlash;
+          const rowBusy = Boolean(d?.pending);
           const iconSrc = confidentialTokenIconByRowKey[row.key];
           return (
             <Box
@@ -594,7 +747,9 @@ export function PrivateBalanceTab({
               {hasDisplay ? (
                 <Text variant={TextVariant.BodyMd} color={TextColor.TextDefault}>
                   {t('privateBalanceRevealed', [
-                    isMasked ? t('privateBalanceMaskedPlaceholder') : d.display,
+                    isMasked
+                      ? t('privateBalanceMaskedPlaceholder')
+                      : d.display,
                     row.token.symbol,
                   ])}
                 </Text>
@@ -606,22 +761,8 @@ export function PrivateBalanceTab({
               ) : null}
               <Box flexDirection={BoxFlexDirection.Row} gap={2} flexWrap="wrap">
                 <Button
-                  variant={ButtonVariant.Primary}
-                  disabled={Boolean(d?.pending)}
-                  aria-busy={d?.pending ? true : undefined}
-                  onClick={onPrimaryDecrypt}
-                  className="inline-flex flex-row items-center justify-center gap-2"
-                >
-                  <Icon
-                    name={decryptActionIcon}
-                    size={IconSize.Sm}
-                    color={IconColor.iconInverse}
-                  />
-                  {primaryDecryptLabel}
-                </Button>
-                <Button
                   variant={ButtonVariant.Secondary}
-                  disabled={Boolean(d?.pending)}
+                  disabled={rowBusy}
                   onClick={() => setSendForRow(row)}
                   className="inline-flex flex-row items-center justify-center gap-2"
                 >
@@ -634,7 +775,7 @@ export function PrivateBalanceTab({
                 </Button>
                 <Button
                   variant={ButtonVariant.Secondary}
-                  disabled={Boolean(d?.pending)}
+                  disabled={rowBusy}
                   onClick={() => openWrapForRow(row)}
                   className="inline-flex flex-row items-center justify-center gap-2"
                 >

@@ -38,6 +38,31 @@ export async function setBalanceMasked(rowKey: string, masked: boolean): Promise
   await browser.storage.local.set({ [CONFIDENTIAL_BALANCE_MASKED_KEY]: next });
 }
 
+/**
+ * Update mask flags for many rows in one read/write so concurrent per-key updates
+ * cannot clobber each other (e.g. global eye toggle with Promise.all).
+ */
+export async function setBalancesMaskedForKeys(
+  rowKeys: string[],
+  masked: boolean,
+): Promise<void> {
+  if (rowKeys.length === 0) {
+    return;
+  }
+  const prev = await loadBalanceMaskedMap();
+  const next = { ...prev };
+  if (masked) {
+    for (const k of rowKeys) {
+      next[k] = true;
+    }
+  } else {
+    for (const k of rowKeys) {
+      delete next[k];
+    }
+  }
+  await browser.storage.local.set({ [CONFIDENTIAL_BALANCE_MASKED_KEY]: next });
+}
+
 export async function loadConfidentialRevealedBalances(): Promise<ConfidentialRevealedBalancesMap> {
   const { [CONFIDENTIAL_REVEALED_BALANCES_KEY]: raw } =
     await browser.storage.local.get(CONFIDENTIAL_REVEALED_BALANCES_KEY);
