@@ -29,6 +29,8 @@ import {
   RESTORE_VAULT_ROUTE,
   REVEAL_SEED_ROUTE,
   SEND_ROUTE,
+  PRIVATE_BALANCE_CONFIDENTIAL_SEND_ROUTE,
+  PRIVATE_BALANCE_SHIELD_ROUTE,
   LEGACY_SETTINGS_V2_ROUTE,
   SETTINGS_ROUTE,
   UNLOCK_ROUTE,
@@ -163,6 +165,12 @@ const ConfirmDecryptMessage = mmLazy(
 );
 const Confirm = mmLazy(() => import('../confirmations/confirm/confirm.tsx'));
 const SendPage = mmLazy(() => import('../confirmations/send/index.ts'));
+const PrivateBalanceConfidentialSendPage = mmLazy(
+  () => import('../private-balance/confidential-send-page.tsx'),
+);
+const PrivateBalanceShieldPage = mmLazy(
+  () => import('../private-balance/shield-page.tsx'),
+);
 const CrossChainSwap = mmLazy(() => import('../bridge/index.tsx'));
 const PermissionsConnect = mmLazy(
   () => import('../permissions-connect/index.js'),
@@ -310,6 +318,14 @@ export const routeConfig = [
       {
         path: `${SEND_ROUTE}/:page?`,
         element: <SendPage />,
+      },
+      {
+        path: PRIVATE_BALANCE_CONFIDENTIAL_SEND_ROUTE,
+        element: <PrivateBalanceConfidentialSendPage />,
+      },
+      {
+        path: PRIVATE_BALANCE_SHIELD_ROUTE,
+        element: <PrivateBalanceShieldPage />,
       },
       {
         path: `${CONFIRM_TRANSACTION_ROUTE}/:id?${DECRYPT_MESSAGE_REQUEST_PATH}`,

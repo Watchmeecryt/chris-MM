@@ -261,12 +261,9 @@ export function ConfidentialErc7984BalancePanel({
       borderColor={BoxBorderColor.BorderMuted}
       className="rounded-lg border border-solid"
     >
-      <Text variant={TextVariant.HeadingXs} color={TextColor.TextDefault}>
-        Confidential balance (ERC-7984)
-      </Text>
       {handleLoading ? (
         <Text variant={TextVariant.BodySm} color={TextColor.TextAlternative}>
-          Loading encrypted balance…
+          {t('privateBalanceDecrypting')}
         </Text>
       ) : null}
       {handleError ? (
@@ -275,14 +272,8 @@ export function ConfidentialErc7984BalancePanel({
         </Text>
       ) : null}
       {!handleLoading && !handleError && !hasNonZeroHandle ? (
-        <Text variant={TextVariant.BodySm} color={TextColor.TextAlternative}>
-          No confidential {symbol} balance for this account (or zero handle).
-        </Text>
-      ) : null}
-      {!handleLoading && !handleError && hasNonZeroHandle ? (
-        <Text variant={TextVariant.BodySm} color={TextColor.TextAlternative}>
-          On-chain balance is encrypted. Reveal it locally after you approve the
-          signature request (Zama relayer user-decrypt).
+        <Text variant={TextVariant.BodyMd} color={TextColor.TextDefault}>
+          0 {symbol}
         </Text>
       ) : null}
       {decrypting ? (
@@ -292,7 +283,7 @@ export function ConfidentialErc7984BalancePanel({
       ) : null}
       {decryptedDisplay ? (
         <Text variant={TextVariant.BodyMd} color={TextColor.TextDefault}>
-          Revealed balance: {decryptedDisplay} {symbol}
+          {decryptedDisplay} {symbol}
         </Text>
       ) : null}
       {decryptError ? (

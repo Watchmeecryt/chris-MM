@@ -1,9 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
 import browser from 'webextension-polyfill';
 import {
   Box,
+  BoxAlignItems,
   BoxFlexDirection,
+  BoxJustifyContent,
   Button,
   ButtonVariant,
   Text,
@@ -58,8 +61,10 @@ import {
   LEGACY_PRIVATE_BALANCE_UNWRAP_LOCAL_KEY,
   clearPrivateBalanceUnwrapFinalizeSession,
 } from '../../../helpers/private-balance-unwrap-session';
-import { PrivateBalanceSendModal } from './private-balance-send-modal';
-import { PrivateBalanceWrapModal } from './private-balance-wrap-modal';
+import {
+  PRIVATE_BALANCE_CONFIDENTIAL_SEND_ROUTE,
+  PRIVATE_BALANCE_SHIELD_ROUTE,
+} from '../../../helpers/constants/routes';
 
 export type PrivateBalanceTabProps = {
   unwrapFinalizeHint: string | null;
@@ -86,6 +91,8 @@ export function PrivateBalanceTab({
   setUnwrapFinalizeHint,
 }: PrivateBalanceTabProps) {
   const t = useI18nContext();
+  const navigate = useNavigate();
+  const location = useLocation();
   const evmAddress = useSelector(selectEvmAddress);
   const enabledChainIds = useSelector(getEnabledChainIds) as Hex[];
   const networkConfigurationsByChainId = useSelector(
@@ -171,20 +178,10 @@ export function PrivateBalanceTab({
   const [decryptByKey, setDecryptByKey] = useState<
     Record<string, DecryptRowState>
   >({});
-  const [sendForRow, setSendForRow] = useState<HoldingRow | null>(null);
-  const [wrapTarget, setWrapTarget] = useState<{
-    row: HoldingRow;
-    tab: 0 | 1;
-  } | null>(null);
-  const [shieldTabBanner, setShieldTabBanner] = useState<string | null>(null);
   const [batchDecryptPending, setBatchDecryptPending] = useState(false);
   const [batchDecryptError, setBatchDecryptError] = useState<string | null>(
     null,
   );
-  const shieldHandleRefreshTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>(
-    [],
-  );
-
   /** Drop legacy unwrap automation keys so they cannot interfere with signing / UI. */
   useEffect(() => {
     void browser.storage.local.remove([
@@ -205,9 +202,16 @@ export function PrivateBalanceTab({
       }
       clearPrivateBalanceUnwrapFinalizeSession();
       setUnwrapFinalizeHint(null);
-      setWrapTarget({ row, tab: 0 });
+      navigate(PRIVATE_BALANCE_SHIELD_ROUTE, {
+        state: {
+          chainIdHex: row.chainIdHex,
+          token: row.token,
+          initialTab: 0,
+          returnTo: `${location.pathname}${location.search}`,
+        },
+      });
     },
-    [evmAddress, setUnwrapFinalizeHint],
+    [evmAddress, location.pathname, location.search, navigate, setUnwrapFinalizeHint],
   );
 
   const refetchHandlesAndInvalidateReveals = useCallback(
@@ -228,21 +232,6 @@ export function PrivateBalanceTab({
     [evmAddress],
   );
 
-  const schedulePostShieldHandleRefresh = useCallback(
-    (row: HoldingRow) => {
-      shieldHandleRefreshTimeoutsRef.current.forEach(clearTimeout);
-      shieldHandleRefreshTimeoutsRef.current = [];
-      const delays = [0, 2500, 8000, 20000, 45000];
-      for (const ms of delays) {
-        const id = setTimeout(() => {
-          void refetchHandlesAndInvalidateReveals([row]);
-        }, ms);
-        shieldHandleRefreshTimeoutsRef.current.push(id);
-      }
-    },
-    [refetchHandlesAndInvalidateReveals],
-  );
-
   useEffect(() => {
     if (!evmAddress || holdings.length === 0) {
       return undefined;
@@ -261,12 +250,6 @@ export function PrivateBalanceTab({
       document.removeEventListener('visibilitychange', run);
     };
   }, [evmAddress, holdings, refetchHandlesAndInvalidateReveals]);
-
-  useEffect(() => {
-    return () => {
-      shieldHandleRefreshTimeoutsRef.current.forEach(clearTimeout);
-    };
-  }, []);
 
   /**
    * Signature / navigation can destroy or suspend this UI before `setState` runs.
@@ -583,8 +566,7 @@ export function PrivateBalanceTab({
     );
   }
 
-  const privateBalanceListBannerText =
-    wrapTarget?.tab === 0 ? shieldTabBanner : unwrapFinalizeHint;
+  const privateBalanceListBannerText = unwrapFinalizeHint;
 
   const revealedRowKeys = holdings.filter((h) =>
     Boolean(decryptByKey[h.key]?.display),
@@ -723,7 +705,7 @@ export function PrivateBalanceTab({
                   )}
                   <Box
                     className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-muted bg-background-default shadow-sm"
-                    title={t('privateBalanceConfidentialBadgeTitle')}
+                    title={row.token.symbol}
                   >
                     <Icon
                       name={IconName.Lock}
@@ -739,85 +721,95 @@ export function PrivateBalanceTab({
               <Text variant={TextVariant.BodySm} color={TextColor.TextAlternative}>
                 {t('privateBalanceEncryptedHint')}
               </Text>
-              {d?.pending ? (
-                <Text variant={TextVariant.BodySm} color={TextColor.TextDefault}>
-                  {t('privateBalanceDecryptInProgress')}
-                </Text>
-              ) : null}
-              {hasDisplay ? (
-                <Text variant={TextVariant.BodyMd} color={TextColor.TextDefault}>
-                  {t('privateBalanceRevealed', [
-                    isMasked
-                      ? t('privateBalanceMaskedPlaceholder')
-                      : d.display,
-                    row.token.symbol,
-                  ])}
-                </Text>
-              ) : null}
-              {d?.error ? (
-                <Text variant={TextVariant.BodySm} color={TextColor.ErrorDefault}>
-                  {d.error}
-                </Text>
-              ) : null}
-              <Box flexDirection={BoxFlexDirection.Row} gap={2} flexWrap="wrap">
-                <Button
-                  variant={ButtonVariant.Secondary}
-                  disabled={rowBusy}
-                  onClick={() => setSendForRow(row)}
-                  className="inline-flex flex-row items-center justify-center gap-2"
+              <Box
+                flexDirection={BoxFlexDirection.Row}
+                flexWrap="wrap"
+                gap={3}
+                alignItems={BoxAlignItems.flexStart}
+                justifyContent={BoxJustifyContent.SpaceBetween}
+                className="w-full"
+              >
+                <Box
+                  flexDirection={BoxFlexDirection.Column}
+                  gap={1}
+                  className="min-w-0 flex-1"
                 >
-                  <Icon
-                    name={IconName.Send}
-                    size={IconSize.Sm}
-                    color={IconColor.iconAlternative}
-                  />
-                  {t('privateBalanceSend')}
-                </Button>
-                <Button
-                  variant={ButtonVariant.Secondary}
-                  disabled={rowBusy}
-                  onClick={() => openWrapForRow(row)}
-                  className="inline-flex flex-row items-center justify-center gap-2"
+                  {d?.pending ? (
+                    <Text
+                      variant={TextVariant.BodySm}
+                      color={TextColor.TextDefault}
+                    >
+                      {t('privateBalanceDecryptInProgress')}
+                    </Text>
+                  ) : null}
+                  {hasDisplay ? (
+                    <Text
+                      variant={TextVariant.BodyMd}
+                      color={TextColor.TextDefault}
+                    >
+                      {t('privateBalanceRevealed', [
+                        isMasked
+                          ? t('privateBalanceMaskedPlaceholder')
+                          : d.display,
+                        row.token.symbol,
+                      ])}
+                    </Text>
+                  ) : null}
+                  {d?.error ? (
+                    <Text
+                      variant={TextVariant.BodySm}
+                      color={TextColor.ErrorDefault}
+                    >
+                      {d.error}
+                    </Text>
+                  ) : null}
+                </Box>
+                <Box
+                  flexDirection={BoxFlexDirection.Row}
+                  gap={2}
+                  flexWrap="wrap"
+                  className="shrink-0 items-center justify-end"
                 >
-                  <Icon
-                    name={IconName.ShieldLock}
-                    size={IconSize.Sm}
-                    color={IconColor.iconAlternative}
-                  />
-                  {t('privateBalanceWrapOpen')}
-                </Button>
+                  <Button
+                    variant={ButtonVariant.Secondary}
+                    disabled={rowBusy}
+                    onClick={() =>
+                      navigate(PRIVATE_BALANCE_CONFIDENTIAL_SEND_ROUTE, {
+                        state: {
+                          chainIdHex: row.chainIdHex,
+                          token: row.token,
+                          returnTo: `${location.pathname}${location.search}`,
+                        },
+                      })
+                    }
+                    className="inline-flex flex-row items-center justify-center gap-2"
+                  >
+                    <Icon
+                      name={IconName.Send}
+                      size={IconSize.Sm}
+                      color={IconColor.iconAlternative}
+                    />
+                    {t('privateBalanceSend')}
+                  </Button>
+                  <Button
+                    variant={ButtonVariant.Secondary}
+                    disabled={rowBusy}
+                    onClick={() => openWrapForRow(row)}
+                    className="inline-flex flex-row items-center justify-center gap-2"
+                  >
+                    <Icon
+                      name={IconName.ShieldLock}
+                      size={IconSize.Sm}
+                      color={IconColor.iconAlternative}
+                    />
+                    {t('privateBalanceWrapOpen')}
+                  </Button>
+                </Box>
               </Box>
             </Box>
           );
         })}
       </Box>
-      {sendForRow ? (
-        <PrivateBalanceSendModal
-          isOpen
-          onClose={() => setSendForRow(null)}
-          evmAddress={evmAddress as string}
-          chainIdHex={sendForRow.chainIdHex}
-          token={sendForRow.token}
-        />
-      ) : null}
-      {wrapTarget ? (
-        <PrivateBalanceWrapModal
-          isOpen
-          onClose={() => {
-            setShieldTabBanner(null);
-            setUnwrapFinalizeHint(null);
-            setWrapTarget(null);
-          }}
-          evmAddress={evmAddress as string}
-          chainIdHex={wrapTarget.row.chainIdHex}
-          token={wrapTarget.row.token}
-          initialTab={wrapTarget.tab}
-          onShieldTabBannerChange={setShieldTabBanner}
-          onShieldTransactionQueued={() =>
-            schedulePostShieldHandleRefresh(wrapTarget.row)
-          }
-        />
-      ) : null}
     </>
   );
 }

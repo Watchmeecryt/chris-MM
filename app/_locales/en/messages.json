@@ -9095,43 +9095,37 @@
     "message": "Tokens"
   },
   "privateBalance": {
-    "message": "Private balance"
+    "message": "Shielded"
   },
   "privateBalanceDecrypting": {
-    "message": "Decrypting..."
+    "message": "…"
   },
   "privateBalanceDecryptInProgress": {
-    "message": "Decrypting your balance... Approve the signature request if one appears."
+    "message": "Decrypting… Approve the request if one appears."
   },
   "privateBalanceDecryptGatewayNotReady": {
-    "message": "The Zama gateway is not ready for this balance yet (common right after a shield or transfer). Wait a minute and tap Decrypt again."
+    "message": "Not ready yet. Wait a moment and try again."
   },
   "privateBalanceDecryptFailed": {
-    "message": "Could not decrypt this balance."
+    "message": "Couldn’t decrypt."
   },
   "privateBalanceEmptyDescription": {
-    "message": "Enable Ethereum Mainnet or Sepolia in your networks. We scan known confidential (ERC-7984) token contracts for a non-zero encrypted balance — you don’t need to import the token first."
+    "message": "Enable Mainnet or Sepolia. Balances appear here when this account holds shielded tokens on those networks."
   },
   "privateBalanceEmptyTitle": {
-    "message": "No confidential balances found"
+    "message": "No balances"
   },
   "privateBalanceEncryptedHint": {
-    "message": "On-chain balance is encrypted."
-  },
-  "privateBalanceConfidentialBadgeTitle": {
-    "message": "Confidential (shielded) token"
+    "message": "Encrypted"
   },
   "privateBalanceEvmOnly": {
-    "message": "Select an Ethereum account to view private balances."
-  },
-  "privateBalanceIntro": {
-    "message": "Confidential tokens on your enabled networks (from the confidential token list). Tap Decrypt to fetch your current on-chain balance handle and show the amount (signature required)."
+    "message": "Select an Ethereum account."
   },
   "privateBalanceDecryptAll": {
     "message": "Decrypt all"
   },
   "privateBalanceDecryptAllNoneNeeded": {
-    "message": "Balances here are already revealed. Use the eye control above to hide or show amounts, or change your balance with Send or Shield."
+    "message": "Already shown. Use the eye control to hide or show amounts."
   },
   "privateBalanceVisibilityHideAllTitle": {
     "message": "Hide all revealed amounts"
@@ -9140,16 +9134,16 @@
     "message": "Show all revealed amounts"
   },
   "privateBalanceDecryptAllNoBalances": {
-    "message": "No encrypted balance to decrypt for this account on your enabled networks. Use Shield to hold confidential tokens first."
+    "message": "Nothing to decrypt on these networks yet."
   },
   "privateBalanceDecryptAllFailed": {
-    "message": "Could not reveal balances. Check errors on each token or try again."
+    "message": "Couldn’t reveal all. Try each row or try again."
   },
   "privateBalanceReveal": {
     "message": "Decrypt"
   },
   "privateBalanceRevealed": {
-    "message": "Revealed: $1 $2"
+    "message": "$1 $2"
   },
   "privateBalanceViewAsset": {
     "message": "Details"
@@ -9167,10 +9161,10 @@
     "message": "Send"
   },
   "privateBalanceSendTitle": {
-    "message": "Confidential send ($1)"
+    "message": "Send $1"
   },
-  "privateBalanceSendDescription": {
-    "message": "The amount is encrypted through the Zama relayer, then sent on-chain as a confidential transfer."
+  "privateBalanceSendShieldedBalance": {
+    "message": "Shielded balance"
   },
   "privateBalanceSendRecipient": {
     "message": "Recipient address"
@@ -9191,13 +9185,13 @@
     "message": "Enter a valid 0x recipient address."
   },
   "privateBalanceSendFailed": {
-    "message": "Could not prepare confidential send."
+    "message": "Couldn’t prepare send."
   },
   "privateBalanceWrapOpen": {
     "message": "Shield"
   },
   "privateBalanceWrapTitle": {
-    "message": "Shield ($1)"
+    "message": "Shield $1"
   },
   "privateBalanceWrapTabShield": {
     "message": "Shield"
@@ -9211,9 +9205,6 @@
   "privateBalanceWrapUnwrapComingSoonShort": {
     "message": "Unwrap — Coming soon"
   },
-  "privateBalanceWrapShieldHelp": {
-    "message": "Deposit public tokens into the confidential wrapper. Approve spending if needed, then shield. This window stays open so you can shield after you approve."
-  },
   "privateBalanceWrapConfirmInMetaMask": {
     "message": "Confirm the transaction in MetaMask. You can return here when finished."
   },
@@ -9222,6 +9213,12 @@
   },
   "privateBalanceWrapAmount": {
     "message": "Amount"
+  },
+  "privateBalanceWrapAvailablePublic": {
+    "message": "$1 $2"
+  },
+  "privateBalanceTvsSupply": {
+    "message": "TVS $1 $2"
   },
   "privateBalanceWrapRefreshAllowance": {
     "message": "Refresh allowance"
@@ -9233,13 +9230,13 @@
     "message": "Try again"
   },
   "privateBalanceWrapNoUnderlying": {
-    "message": "No public token is configured for this confidential asset on this network."
+    "message": "Not available on this network."
   },
   "privateBalanceWrapInvalidAmount": {
     "message": "Enter a valid amount."
   },
   "privateBalanceWrapNeedApprove": {
-    "message": "Approve the confidential contract to spend your public tokens first."
+    "message": "Approve spending first."
   },
   "privateBalanceWrapCheckAllowance": {
     "message": "Allowance is still loading. Wait a moment, then try shield again."
@@ -9254,7 +9251,7 @@
     "message": "Approve transaction failed to start."
   },
   "privateBalanceWrapShield": {
-    "message": "Shield (wrap)"
+    "message": "Shield"
   },
   "privateBalanceWrapShieldFailed": {
     "message": "Shield transaction failed to start."
@@ -9272,7 +9269,7 @@
     "message": "Unwrap submitted. Waiting for confirmation to finalize…"
   },
   "privateBalanceUnwrapFinalizeDecrypting": {
-    "message": "Fetching public decryption proof…"
+    "message": "Finishing…"
   },
   "privateBalanceUnwrapFinalizeSubmitting": {
     "message": "Opening finalize transaction — confirm to receive public tokens."

@@ -92,6 +92,20 @@ export function getConfidentialTokensForChain(
   return CONFIDENTIAL_TOKENS_BY_CHAIN[chainId] ?? [];
 }
 
+/**
+ * Public (underlying) ticker for shield UI when the registry uses a leading `c` prefix
+ * (e.g. cUSDC → USDC, ctGBP → tGBP).
+ */
+export function getUnderlyingPublicDisplaySymbol(
+  token: ConfidentialTokenDefinition,
+): string {
+  const { symbol } = token;
+  if (symbol.length > 1 && symbol.startsWith('c')) {
+    return symbol.slice(1);
+  }
+  return symbol;
+}
+
 export { ZERO as CONFIDENTIAL_ZERO_HANDLE };
 
 export function isConfidentialErc7984Token(

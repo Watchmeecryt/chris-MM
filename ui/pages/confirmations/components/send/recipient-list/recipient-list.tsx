@@ -99,12 +99,16 @@ const ContactsList = ({
 export const RecipientList = ({
   hideModal,
   onToChange,
+  recipientsOverride,
 }: {
   hideModal: () => void;
   onToChange: (address: string) => void;
+  /** When set (e.g. shielded send page), skips SendContext-dependent recipient resolution. */
+  recipientsOverride?: RecipientType[];
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const recipients = useRecipients();
+  const recipientsFromSendContext = useRecipients();
+  const recipients = recipientsOverride ?? recipientsFromSendContext;
   const contactRecipients = recipients.filter(
     (recipient) => recipient.contactName,
   );

@@ -104,6 +104,11 @@ export const NEW_ACCOUNT_ROUTE = '/new-account';
 export const CONFIRM_ADD_SUGGESTED_NFT_ROUTE = '/confirm-add-suggested-nft';
 export const CONNECT_HARDWARE_ROUTE = '/new-account/connect';
 export const SEND_ROUTE = '/send';
+/** Full-page confidential transfer (private balance). */
+export const PRIVATE_BALANCE_CONFIDENTIAL_SEND_ROUTE =
+  '/private-balance/confidential-send';
+/** Full-page shield / unwrap (private balance). */
+export const PRIVATE_BALANCE_SHIELD_ROUTE = '/private-balance/shield';
 export const REMOTE_ROUTE = '/remote';
 export const REMOTE_ROUTE_SETUP_SWAPS = '/remote/setup-swaps';
 export const REMOTE_ROUTE_SETUP_DAILY_ALLOWANCE =

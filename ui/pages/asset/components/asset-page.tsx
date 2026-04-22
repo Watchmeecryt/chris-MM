@@ -89,6 +89,7 @@ import AssetChart from './chart/asset-chart';
 import { MarketClosedActionButton } from './market-closed-action-button';
 import TokenButtons from './token-buttons';
 import { TronDailyResources } from './tron-daily-resources';
+import { Erc7984WrapperTokenDetails } from './erc7984-wrapper-token-details';
 
 // TODO BIP44 Refactor: BIP-44 has been enabled and is stable, this page needs a significant refactor to remove confusing branching logic
 const AssetPage = ({
@@ -264,6 +265,8 @@ const AssetPage = ({
   const isTron = useMultichainSelector(getMultichainIsTron, selectedAccount);
   const showTronResources = isTron && type === AssetType.native;
 
+  const isErc7984ConfidentialAsset = Boolean(erc7984ConfidentialPanel);
+
   const isUpdatedAssetNative = isNativeAsset(updatedAsset);
   const tokenAsset = isUpdatedAssetNative ? null : updatedAsset;
   const [isMarketClosedModalOpen, setIsMarketClosedModalOpen] = useState(false);
@@ -402,89 +405,112 @@ const AssetPage = ({
               paddingLeft={4}
               paddingRight={4}
             >
-              <Text
-                variant={TextVariant.HeadingSm}
-                className="asset-page__details-heading"
-              >
-                {t('tokenDetails')}
-              </Text>
+              {!(
+                isErc7984ConfidentialAsset &&
+                isEvm &&
+                type === AssetType.token
+              ) ? (
+                <Text
+                  variant={TextVariant.HeadingSm}
+                  className="asset-page__details-heading"
+                >
+                  {t('tokenDetails')}
+                </Text>
+              ) : null}
               <Box flexDirection={BoxFlexDirection.Column} gap={2}>
-                {renderRow(
-                  t('network'),
-                  <Box
-                    flexDirection={BoxFlexDirection.Row}
-                    alignItems={BoxAlignItems.Center}
-                    gap={2}
-                    data-testid="asset-network"
-                  >
-                    <AvatarNetwork
-                      src={tokenChainImage}
-                      name={networkName}
-                      size={AvatarNetworkSize.Xs}
-                    />
-                    <Text
-                      variant={TextVariant.BodyMd}
-                      fontWeight={FontWeight.Medium}
-                    >
-                      {networkName}
-                    </Text>
-                  </Box>,
-                )}
-                {shouldShowContractAddress && (
-                  <Box>
+                {isErc7984ConfidentialAsset &&
+                isEvm &&
+                type === AssetType.token ? (
+                  <Erc7984WrapperTokenDetails
+                    chainId={chainId as Hex}
+                    wrapperAddress={contractAddress}
+                    decimals={asset.decimals ?? 18}
+                    symbol={symbol}
+                    underlyingDecimals={asset.decimals ?? 18}
+                    underlyingFiatPerToken={currentPrice}
+                    fiatCurrencyCode={currency}
+                  />
+                ) : (
+                  <>
                     {renderRow(
-                      t('contractAddress'),
-                      <AddressCopyButton address={contractAddress} shorten />,
-                    )}
-                    <Box flexDirection={BoxFlexDirection.Column} gap={2}>
-                      {asset.decimals !== undefined &&
-                        renderRow(
-                          t('tokenDecimal'),
-                          <Text
-                            variant={TextVariant.BodyMd}
-                            fontWeight={FontWeight.Medium}
-                          >
-                            {asset.decimals}
-                          </Text>,
-                        )}
-                      {asset.aggregators && asset.aggregators.length > 0 && (
-                        <Box>
-                          <Text
-                            variant={TextVariant.BodyMd}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextAlternative}
-                          >
-                            {t('tokenList')}
-                          </Text>
-                          <Text
-                            variant={TextVariant.BodyMd}
-                            fontWeight={FontWeight.Medium}
-                          >
-                            {asset.aggregators
-                              .map((agg) =>
-                                agg.replace(/^metamask$/iu, 'MetaMask'),
-                              )
-                              .join(', ')}
-                          </Text>
-                        </Box>
-                      )}
-                    </Box>
-                  </Box>
-                )}
-                {shouldShowSpendingCaps &&
-                  renderRow(
-                    t('spendingCaps'),
-                    <TextButton size={TextButtonSize.BodyMd} asChild>
-                      <a
-                        className="asset-page__spending-caps"
-                        href={portfolioSpendingCapsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      t('network'),
+                      <Box
+                        flexDirection={BoxFlexDirection.Row}
+                        alignItems={BoxAlignItems.Center}
+                        gap={2}
+                        data-testid="asset-network"
                       >
-                        {t('editInPortfolio')}
-                      </a>
-                    </TextButton>,
-                  )}
+                        <AvatarNetwork
+                          src={tokenChainImage}
+                          name={networkName}
+                          size={AvatarNetworkSize.Xs}
+                        />
+                        <Text
+                          variant={TextVariant.BodyMd}
+                          fontWeight={FontWeight.Medium}
+                        >
+                          {networkName}
+                        </Text>
+                      </Box>,
+                    )}
+                    {shouldShowContractAddress && (
+                      <Box>
+                        {renderRow(
+                          t('contractAddress'),
+                          <AddressCopyButton address={contractAddress} shorten />,
+                        )}
+                        <Box flexDirection={BoxFlexDirection.Column} gap={2}>
+                          {asset.decimals !== undefined &&
+                            renderRow(
+                              t('tokenDecimal'),
+                              <Text
+                                variant={TextVariant.BodyMd}
+                                fontWeight={FontWeight.Medium}
+                              >
+                                {asset.decimals}
+                              </Text>,
+                            )}
+                          {asset.aggregators &&
+                            asset.aggregators.length > 0 && (
+                              <Box>
+                                <Text
+                                  variant={TextVariant.BodyMd}
+                                  fontWeight={FontWeight.Medium}
+                                  color={TextColor.TextAlternative}
+                                >
+                                  {t('tokenList')}
+                                </Text>
+                                <Text
+                                  variant={TextVariant.BodyMd}
+                                  fontWeight={FontWeight.Medium}
+                                >
+                                  {asset.aggregators
+                                    .map((agg) =>
+                                      agg.replace(/^metamask$/iu, 'MetaMask'),
+                                    )
+                                    .join(', ')}
+                                </Text>
+                              </Box>
+                            )}
+                        </Box>
+                      </Box>
+                    )}
+                    {shouldShowSpendingCaps &&
+                      renderRow(
+                        t('spendingCaps'),
+                        <TextButton size={TextButtonSize.BodyMd} asChild>
+                          <a
+                            className="asset-page__spending-caps"
+                            href={portfolioSpendingCapsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {t('editInPortfolio')}
+                          </a>
+                        </TextButton>,
+                      )}
+                  </>
+                )}
               </Box>
             </Box>
           )}
