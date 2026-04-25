@@ -109,6 +109,8 @@ export const PRIVATE_BALANCE_CONFIDENTIAL_SEND_ROUTE =
   '/private-balance/confidential-send';
 /** Full-page shield / unwrap (private balance). */
 export const PRIVATE_BALANCE_SHIELD_ROUTE = '/private-balance/shield';
+/** Unwrap: track network + relayer until finalize `finalizeUnwrap` is queued. */
+export const PRIVATE_BALANCE_UNWRAP_TRACK_ROUTE = '/private-balance/unwrap-track';
 export const REMOTE_ROUTE = '/remote';
 export const REMOTE_ROUTE_SETUP_SWAPS = '/remote/setup-swaps';
 export const REMOTE_ROUTE_SETUP_DAILY_ALLOWANCE =

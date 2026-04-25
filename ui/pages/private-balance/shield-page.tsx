@@ -52,6 +52,7 @@ import {
 import {
   CONFIRM_TRANSACTION_ROUTE,
   DEFAULT_ROUTE,
+  PRIVATE_BALANCE_UNWRAP_TRACK_ROUTE,
 } from '../../helpers/constants/routes';
 import { useI18nContext } from '../../hooks/useI18nContext';
 import { selectEvmAddress } from '../../selectors/accounts';
@@ -69,7 +70,7 @@ import {
   savePrivateBalanceUnwrapFinalizeSession,
   txMetaBroadcastHash,
 } from '../../helpers/private-balance-unwrap-session';
-const PRIVATE_BALANCE_UNWRAP_UI_TEMPORARILY_DISABLED = true;
+const PRIVATE_BALANCE_UNWRAP_UI_TEMPORARILY_DISABLED = false;
 
 export type PrivateBalanceShieldLocationState = {
   chainIdHex: Hex;
@@ -299,6 +300,8 @@ export default function PrivateBalanceShieldPage() {
       options?: {
         beforeNavigate?: (transactionMeta: TransactionMeta) => void;
         keepOpenForReturn?: boolean;
+        /** After the user approves the tx in the review screen, navigate here. */
+        goBackToOverride?: string;
       },
     ) => {
       if (!chainIdHex) {
@@ -322,10 +325,13 @@ export default function PrivateBalanceShieldPage() {
         location.pathname +
         (location.search || '') +
         (location.hash || '');
+      const goBackTo =
+        options?.goBackToOverride ??
+        (options?.keepOpenForReturn ? back : returnTo);
       navigate({
         pathname: `${CONFIRM_TRANSACTION_ROUTE}/${transactionMeta.id}`,
         search: new URLSearchParams({
-          goBackTo: options?.keepOpenForReturn ? back : returnTo,
+          goBackTo,
         }).toString(),
       });
       return transactionMeta;
@@ -533,6 +539,7 @@ export default function PrivateBalanceShieldPage() {
           value: '0x0' as Hex,
         },
         {
+          goBackToOverride: PRIVATE_BALANCE_UNWRAP_TRACK_ROUTE,
           beforeNavigate: (txMeta) => {
             const unwrapTxHash = txMetaBroadcastHash(txMeta) ?? undefined;
             savePrivateBalanceUnwrapFinalizeSession({

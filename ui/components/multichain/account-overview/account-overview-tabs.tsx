@@ -40,7 +40,6 @@ import { usePrefetchTransactions } from '../activity-v2/hooks';
 import { transitionForward } from '../../ui/transition';
 import { AccountOverviewCommonProps } from './common';
 import { PrivateBalanceTab } from './private-balance-tab';
-import { usePrivateBalanceUnwrapFinalizePoller } from './use-private-balance-unwrap-finalize-poller';
 
 export type AccountOverviewTabsProps = AccountOverviewCommonProps & {
   showTokens: boolean;
@@ -153,9 +152,6 @@ export const AccountOverviewTabs = ({
 
   const isPerpsExperienceAvailable = useSelector(getIsPerpsExperienceAvailable);
 
-  const { unwrapFinalizeHint, setUnwrapFinalizeHint } =
-    usePrivateBalanceUnwrapFinalizePoller(Boolean(showPrivateConfidential));
-
   return (
     <Tabs<AccountOverviewTab>
       animated
@@ -188,10 +184,7 @@ export const AccountOverviewTabs = ({
           data-testid="account-overview__private-balance-tab"
         >
           <ErrorBoundary key="private-balance">
-            <PrivateBalanceTab
-              unwrapFinalizeHint={unwrapFinalizeHint}
-              setUnwrapFinalizeHint={setUnwrapFinalizeHint}
-            />
+            <PrivateBalanceTab />
           </ErrorBoundary>
         </Tab>
       )}

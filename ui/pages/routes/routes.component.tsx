@@ -31,6 +31,7 @@ import {
   SEND_ROUTE,
   PRIVATE_BALANCE_CONFIDENTIAL_SEND_ROUTE,
   PRIVATE_BALANCE_SHIELD_ROUTE,
+  PRIVATE_BALANCE_UNWRAP_TRACK_ROUTE,
   LEGACY_SETTINGS_V2_ROUTE,
   SETTINGS_ROUTE,
   UNLOCK_ROUTE,
@@ -170,6 +171,9 @@ const PrivateBalanceConfidentialSendPage = mmLazy(
 );
 const PrivateBalanceShieldPage = mmLazy(
   () => import('../private-balance/shield-page.tsx'),
+);
+const PrivateBalanceUnwrapTrackPage = mmLazy(
+  () => import('../private-balance/unwrap-track-page.tsx'),
 );
 const CrossChainSwap = mmLazy(() => import('../bridge/index.tsx'));
 const PermissionsConnect = mmLazy(
@@ -326,6 +330,10 @@ export const routeConfig = [
       {
         path: PRIVATE_BALANCE_SHIELD_ROUTE,
         element: <PrivateBalanceShieldPage />,
+      },
+      {
+        path: PRIVATE_BALANCE_UNWRAP_TRACK_ROUTE,
+        element: <PrivateBalanceUnwrapTrackPage />,
       },
       {
         path: `${CONFIRM_TRANSACTION_ROUTE}/:id?${DECRYPT_MESSAGE_REQUEST_PATH}`,

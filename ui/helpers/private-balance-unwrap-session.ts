@@ -74,8 +74,8 @@ function validateSession(
 }
 
 /**
- * Session-only: lives in `sessionStorage` for this popup document only.
- * Closing the extension popup clears it — no `browser.storage.local` persistence.
+ * `localStorage` (extension origin) so unwrap–finalize can resume on the **unwrap
+ * track** page after the popup is closed and reopened, without wrapping the whole app.
  */
 export function savePrivateBalanceUnwrapFinalizeSession(
   s: PrivateBalanceUnwrapFinalizeSession,
@@ -86,7 +86,7 @@ export function savePrivateBalanceUnwrapFinalizeSession(
   }
   const json = JSON.stringify(normalized);
   try {
-    sessionStorage.setItem(PRIVATE_BALANCE_UNWRAP_FINALIZE_SESSION_KEY, json);
+    localStorage.setItem(PRIVATE_BALANCE_UNWRAP_FINALIZE_SESSION_KEY, json);
   } catch {
     /* quota / private mode */
   }
@@ -104,7 +104,7 @@ export function mergePrivateBalanceUnwrapFinalizeSession(
 
 export function readPrivateBalanceUnwrapFinalizeSession(): PrivateBalanceUnwrapFinalizeSession | null {
   try {
-    const raw = sessionStorage.getItem(
+    const raw = localStorage.getItem(
       PRIVATE_BALANCE_UNWRAP_FINALIZE_SESSION_KEY,
     );
     if (!raw) {
@@ -120,7 +120,7 @@ export function readPrivateBalanceUnwrapFinalizeSession(): PrivateBalanceUnwrapF
 
 export function clearPrivateBalanceUnwrapFinalizeSession(): void {
   try {
-    sessionStorage.removeItem(PRIVATE_BALANCE_UNWRAP_FINALIZE_SESSION_KEY);
+    localStorage.removeItem(PRIVATE_BALANCE_UNWRAP_FINALIZE_SESSION_KEY);
   } catch {
     /* ignore */
   }

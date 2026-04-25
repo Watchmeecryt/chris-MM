@@ -9277,6 +9277,21 @@
   "privateBalanceUnwrapFinalizeFailed": {
     "message": "Could not complete unwrap finalize. You can retry from the asset page or a dapp."
   },
+  "privateBalanceUnwrapTrackTitle": {
+    "message": "Unwrap in progress"
+  },
+  "privateBalanceUnwrapTrackIntro": {
+    "message": "Your unwrap was sent to the network. This screen updates until the finalize step is ready — you will be asked to confirm one more transaction to receive public tokens."
+  },
+  "privateBalanceUnwrapTrackNoSession": {
+    "message": "Nothing to track here. Use Unwrap from Shielded, or return to the wallet."
+  },
+  "privateBalanceUnwrapTrackStatusIdle": {
+    "message": "Checking status…"
+  },
+  "privateBalanceUnwrapTrackFindingOnChain": {
+    "message": "Locating your transaction on the network…"
+  },
   "tokensCount": {
     "message": "tokens",
     "description": "is the count of tokens used for token transfers (plural form)"

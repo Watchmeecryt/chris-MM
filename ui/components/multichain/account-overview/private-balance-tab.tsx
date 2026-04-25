@@ -48,7 +48,6 @@ import {
   CONFIDENTIAL_REVEALED_BALANCES_KEY,
   CONFIDENTIAL_REVEALED_HANDLE_SNAPSHOT_KEY,
   confidentialRevealedRowKey,
-  invalidateStaleRevealsAfterHandleRefetch,
   loadBalanceMaskedMap,
   loadConfidentialRevealedBalances,
   loadPendingDecryptRows,
@@ -65,11 +64,7 @@ import {
   PRIVATE_BALANCE_CONFIDENTIAL_SEND_ROUTE,
   PRIVATE_BALANCE_SHIELD_ROUTE,
 } from '../../../helpers/constants/routes';
-
-export type PrivateBalanceTabProps = {
-  unwrapFinalizeHint: string | null;
-  setUnwrapFinalizeHint: (hint: string | null) => void;
-};
+import { useConfidentialHandleCacheSync } from '../../../hooks/useConfidentialHandleCacheSync';
 
 type HoldingRow = {
   key: string;
@@ -86,10 +81,7 @@ type DecryptRowState = {
   masked?: boolean;
 };
 
-export function PrivateBalanceTab({
-  unwrapFinalizeHint,
-  setUnwrapFinalizeHint,
-}: PrivateBalanceTabProps) {
+export function PrivateBalanceTab() {
   const t = useI18nContext();
   const navigate = useNavigate();
   const location = useLocation();
@@ -182,6 +174,13 @@ export function PrivateBalanceTab({
   const [batchDecryptError, setBatchDecryptError] = useState<string | null>(
     null,
   );
+  /**
+   * Pull stale cleartext when the on-chain handle changed (unwrap / shield / transfer).
+   * Mounted only on the Shielded sub-tab so we never compete with MetaMask's RPC pollers
+   * on Activity / Tokens (the popup was freezing the account switcher).
+   */
+  useConfidentialHandleCacheSync(Boolean(evmAddress));
+
   /** Drop legacy unwrap automation keys so they cannot interfere with signing / UI. */
   useEffect(() => {
     void browser.storage.local.remove([
@@ -201,7 +200,6 @@ export function PrivateBalanceTab({
         return;
       }
       clearPrivateBalanceUnwrapFinalizeSession();
-      setUnwrapFinalizeHint(null);
       navigate(PRIVATE_BALANCE_SHIELD_ROUTE, {
         state: {
           chainIdHex: row.chainIdHex,
@@ -211,45 +209,8 @@ export function PrivateBalanceTab({
         },
       });
     },
-    [evmAddress, location.pathname, location.search, navigate, setUnwrapFinalizeHint],
+    [evmAddress, location.pathname, location.search, navigate],
   );
-
-  const refetchHandlesAndInvalidateReveals = useCallback(
-    async (rows: HoldingRow[]) => {
-      if (!evmAddress || rows.length === 0) {
-        return;
-      }
-      await invalidateStaleRevealsAfterHandleRefetch(
-        rows.map((r) => ({
-          key: r.key,
-          chainIdHex: r.chainIdHex,
-          tokenAddress: r.token.address,
-        })),
-        confidentialErc7984GetBalanceHandle,
-        evmAddress as string,
-      );
-    },
-    [evmAddress],
-  );
-
-  useEffect(() => {
-    if (!evmAddress || holdings.length === 0) {
-      return undefined;
-    }
-    const POLL_MS = 12_000;
-    const run = () => {
-      if (document.visibilityState !== 'visible') {
-        return;
-      }
-      void refetchHandlesAndInvalidateReveals(holdings);
-    };
-    const id = setInterval(run, POLL_MS);
-    document.addEventListener('visibilitychange', run);
-    return () => {
-      clearInterval(id);
-      document.removeEventListener('visibilitychange', run);
-    };
-  }, [evmAddress, holdings, refetchHandlesAndInvalidateReveals]);
 
   /**
    * Signature / navigation can destroy or suspend this UI before `setState` runs.
@@ -566,8 +527,6 @@ export function PrivateBalanceTab({
     );
   }
 
-  const privateBalanceListBannerText = unwrapFinalizeHint;
-
   const revealedRowKeys = holdings.filter((h) =>
     Boolean(decryptByKey[h.key]?.display),
   );
@@ -588,19 +547,8 @@ export function PrivateBalanceTab({
           flexDirection={BoxFlexDirection.Row}
           flexWrap="wrap"
           gap={2}
-          className="w-full items-center justify-between"
+          className="w-full items-center justify-end"
         >
-          {privateBalanceListBannerText ? (
-            <Text
-              variant={TextVariant.BodySm}
-              color={TextColor.TextDefault}
-              className="min-w-0 flex-1"
-            >
-              {privateBalanceListBannerText}
-            </Text>
-          ) : (
-            <Box className="min-w-0 flex-1" />
-          )}
           <Box
             flexDirection={BoxFlexDirection.Row}
             gap={2}
