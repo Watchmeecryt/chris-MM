@@ -14,7 +14,7 @@ function checksumAddress(addr: string): string {
   }
 }
 
-/** Mainnet: 18-decimal confidential tokens use 6-decimal fixed point for relayer encrypt (mobile app parity). */
+/** Mainnet: 18-decimal confidential tokens use 6-decimal fixed point for relayer encrypt (per relayer API expectations). */
 export function relayerEncryptDecimalsForToken(
   tokenDecimals: number,
   chainId: number,

@@ -33,13 +33,33 @@ import {
   type PrivateBalanceUnwrapFinalizeSession,
 } from '../../../helpers/private-balance-unwrap-session';
 
-type FinalizeStage =
+export type FinalizeStage =
   | 'idle'
   | 'waiting-confirmation'
   | 'fetching-receipt'
   | 'decrypting'
   | 'submitting'
   | 'failed';
+
+/** 1 = on-chain confirmation · 2 = public decryption · 3 = finalize unwrap. */
+export type FinalizeStepIndex = 1 | 2 | 3;
+
+const STAGE_TO_STEP: Record<
+  Exclude<FinalizeStage, 'failed' | 'idle'>,
+  FinalizeStepIndex
+> = {
+  'waiting-confirmation': 1,
+  'fetching-receipt': 2,
+  decrypting: 2,
+  submitting: 3,
+};
+
+function activeStepFromStage(stage: FinalizeStage): FinalizeStepIndex | null {
+  if (stage === 'failed' || stage === 'idle') {
+    return null;
+  }
+  return STAGE_TO_STEP[stage];
+}
 
 const TERMINAL_FAIL = new Set([
   TransactionStatus.failed,
@@ -62,6 +82,10 @@ const TERMINAL_FAIL = new Set([
  *    ourselves.
  */
 export function usePrivateBalanceUnwrapFinalizePoller(enabled: boolean): {
+  stage: FinalizeStage;
+  activeStep: FinalizeStepIndex | null;
+  failedStep: FinalizeStepIndex | null;
+  errorText: string | null;
   unwrapFinalizeHint: string | null;
   setUnwrapFinalizeHint: (hint: string | null) => void;
 } {
@@ -78,8 +102,10 @@ export function usePrivateBalanceUnwrapFinalizePoller(enabled: boolean): {
   const [stage, setStage] = useState<FinalizeStage>('idle');
   const [errorText, setErrorText] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
+  const [failedStep, setFailedStep] = useState<FinalizeStepIndex | null>(null);
   const lockRef = useRef(false);
   const handledMetaIdRef = useRef<string | null>(null);
+  const lastActiveStepRef = useRef<FinalizeStepIndex | null>(null);
 
   /**
    * Pick up a session that was written by `shield-page` while we were navigating —
@@ -92,6 +118,8 @@ export function usePrivateBalanceUnwrapFinalizePoller(enabled: boolean): {
       const next = readPrivateBalanceUnwrapFinalizeSession();
       setSession(next);
       handledMetaIdRef.current = null;
+      setFailedStep(null);
+      setErrorText(null);
       setRetryNonce((n) => n + 1);
       void forceUpdateMetamaskState(dispatch).catch(() => {
         /* offscreen / background not ready */
@@ -163,15 +191,32 @@ export function usePrivateBalanceUnwrapFinalizePoller(enabled: boolean): {
     }
     lockRef.current = true;
     handledMetaIdRef.current = session.unwrapTxMetaId ?? null;
+    const markFailed = (
+      step: FinalizeStepIndex,
+      message: string | undefined,
+      keepSession: boolean,
+    ) => {
+      if (!keepSession) {
+        clearPrivateBalanceUnwrapFinalizeSession();
+        setSession(null);
+      }
+      setStage('failed');
+      setFailedStep(step);
+      setErrorText(message ?? t('privateBalanceUnwrapFinalizeFailed'));
+      handledMetaIdRef.current = null;
+    };
     try {
       setErrorText(null);
+      setFailedStep(null);
       setStage('fetching-receipt');
+      lastActiveStepRef.current = 2;
       const receipt = await confidentialErc7984GetTransactionReceipt(
         session.chainIdHex,
         txHash,
       );
       if (!receipt) {
         setStage('waiting-confirmation');
+        lastActiveStepRef.current = 1;
         handledMetaIdRef.current = null;
         return;
       }
@@ -181,10 +226,7 @@ export function usePrivateBalanceUnwrapFinalizePoller(enabled: boolean): {
         receipt.status === 1 ||
         String(receipt.status).toLowerCase() === 'success';
       if (!ok) {
-        clearPrivateBalanceUnwrapFinalizeSession();
-        setSession(null);
-        setStage('failed');
-        setErrorText(t('privateBalanceUnwrapFinalizeFailed'));
+        markFailed(1, t('privateBalanceUnwrapFinalizeFailed'), false);
         return;
       }
 
@@ -194,23 +236,19 @@ export function usePrivateBalanceUnwrapFinalizePoller(enabled: boolean): {
         session.tokenAddress,
       );
       if (!burntHandle) {
-        clearPrivateBalanceUnwrapFinalizeSession();
-        setSession(null);
-        setStage('failed');
-        setErrorText(t('privateBalanceUnwrapFinalizeFailed'));
+        markFailed(2, t('privateBalanceUnwrapFinalizeFailed'), false);
         return;
       }
 
       setStage('decrypting');
+      lastActiveStepRef.current = 2;
       const chainIdNumber = Number(hexToBigInt(session.chainIdHex));
       const proof = await relayerPublicDecryptProofForHandleWithRetry(
         burntHandle,
         chainIdNumber,
       );
       if (!proof) {
-        setStage('failed');
-        setErrorText(t('privateBalanceUnwrapFinalizeFailed'));
-        handledMetaIdRef.current = null;
+        markFailed(2, t('privateBalanceUnwrapFinalizeFailed'), true);
         return;
       }
 
@@ -226,6 +264,7 @@ export function usePrivateBalanceUnwrapFinalizePoller(enabled: boolean): {
       });
 
       setStage('submitting');
+      lastActiveStepRef.current = 3;
       const networkClientId = await findNetworkClientIdByChainId(
         session.chainIdHex,
       );
@@ -256,13 +295,12 @@ export function usePrivateBalanceUnwrapFinalizePoller(enabled: boolean): {
         }).toString(),
       });
     } catch (err) {
-      setStage('failed');
-      setErrorText(
-        err instanceof Error
-          ? err.message
-          : t('privateBalanceUnwrapFinalizeFailed'),
+      const failedAt = lastActiveStepRef.current ?? 3;
+      markFailed(
+        failedAt,
+        err instanceof Error ? err.message : undefined,
+        true,
       );
-      handledMetaIdRef.current = null;
     } finally {
       lockRef.current = false;
     }
@@ -279,10 +317,12 @@ export function usePrivateBalanceUnwrapFinalizePoller(enabled: boolean): {
   useEffect(() => {
     if (!enabled || !session || !evmAddress) {
       setStage('idle');
+      lastActiveStepRef.current = null;
       return;
     }
     if (!unwrapMeta && !session.unwrapTxHash) {
       setStage('waiting-confirmation');
+      lastActiveStepRef.current = 1;
       return;
     }
     const status = String(unwrapStatus ?? '').toLowerCase();
@@ -290,6 +330,7 @@ export function usePrivateBalanceUnwrapFinalizePoller(enabled: boolean): {
       clearPrivateBalanceUnwrapFinalizeSession();
       setSession(null);
       setStage('failed');
+      setFailedStep(1);
       setErrorText(t('privateBalanceUnwrapFinalizeFailed'));
       return;
     }
@@ -298,6 +339,7 @@ export function usePrivateBalanceUnwrapFinalizePoller(enabled: boolean): {
       return;
     }
     setStage('waiting-confirmation');
+    lastActiveStepRef.current = 1;
   }, [
     enabled,
     evmAddress,
@@ -336,7 +378,16 @@ export function usePrivateBalanceUnwrapFinalizePoller(enabled: boolean): {
     }
   }, []);
 
+  const activeStep = useMemo(
+    () => activeStepFromStage(stage),
+    [stage],
+  );
+
   return {
+    stage,
+    activeStep,
+    failedStep,
+    errorText,
     unwrapFinalizeHint: hint,
     setUnwrapFinalizeHint: setHintFromOutside,
   };

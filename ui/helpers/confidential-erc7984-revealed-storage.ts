@@ -158,8 +158,8 @@ export type RefetchBalanceHandleRow = {
 };
 
 /**
- * zpayy-style `refetch()`: re-read `confidentialBalanceOf` per row; if cleartext is stored and the
- * live handle no longer matches the handle from the last successful decrypt, clear that row (no EIP-712).
+ * Re-read `confidentialBalanceOf` per row; if cleartext is stored and the live handle no longer
+ * matches the handle from the last successful decrypt, clear that row (no EIP-712).
  */
 export async function invalidateStaleRevealsAfterHandleRefetch(
   rows: RefetchBalanceHandleRow[],

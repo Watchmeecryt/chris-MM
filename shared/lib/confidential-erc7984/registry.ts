@@ -2,7 +2,7 @@ import { Hex, hexToBigInt } from '@metamask/utils';
 import { MAINNET_CHAIN_ID, SEPOLIA_CHAIN_ID } from './constants';
 
 /**
- * Confidential wrapper metadata — mainnet addresses match * `zpayy-mobile/src/lib/contracts.ts` (`MAINNET_CONTRACTS` CONF_* defaults).
+ * Confidential wrapper metadata — mainnet entries reflect the deployed ERC-7984 registry for this integration.
  */
 export type ConfidentialTokenDefinition = {
   id: string;
@@ -67,7 +67,7 @@ const MAINNET_CONFIDENTIAL_TOKENS: ConfidentialTokenDefinition[] = [
   },
 ];
 
-/** Sepolia: cUSDC from zpayy-mobile `SEPOLIA_CONTRACTS` default. */
+/** Sepolia testnet: default cUSDC entry for this integration. */
 const SEPOLIA_CONFIDENTIAL_TOKENS: ConfidentialTokenDefinition[] = [
   {
     id: 'usdc',

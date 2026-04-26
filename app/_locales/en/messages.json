@@ -9263,7 +9263,7 @@
     "message": "Unwrap transaction failed to start."
   },
   "privateBalanceWrapUnwrapping": {
-    "message": "Unwrapping…"
+    "message": "Encrypting with relayer…"
   },
   "privateBalanceUnwrapFinalizeWaiting": {
     "message": "Unwrap submitted. Waiting for confirmation to finalize…"
@@ -9281,7 +9281,7 @@
     "message": "Unwrap in progress"
   },
   "privateBalanceUnwrapTrackIntro": {
-    "message": "Your unwrap was sent to the network. This screen updates until the finalize step is ready — you will be asked to confirm one more transaction to receive public tokens."
+    "message": "Sit tight — once each step turns green we will open the finalize transaction so you can receive your public tokens."
   },
   "privateBalanceUnwrapTrackNoSession": {
     "message": "Nothing to track here. Use Unwrap from Shielded, or return to the wallet."
@@ -9291,6 +9291,36 @@
   },
   "privateBalanceUnwrapTrackFindingOnChain": {
     "message": "Locating your transaction on the network…"
+  },
+  "privateBalanceUnwrapTrackStep1Title": {
+    "message": "Confirming on-chain"
+  },
+  "privateBalanceUnwrapTrackStep1Pending": {
+    "message": "Waiting for the network to confirm your unwrap transaction."
+  },
+  "privateBalanceUnwrapTrackStep1Done": {
+    "message": "Unwrap confirmed on-chain."
+  },
+  "privateBalanceUnwrapTrackStep2Title": {
+    "message": "Public decryption"
+  },
+  "privateBalanceUnwrapTrackStep2Pending": {
+    "message": "Asking the relayer to publicly decrypt the burnt handle."
+  },
+  "privateBalanceUnwrapTrackStep2Done": {
+    "message": "Decryption proof received from the relayer."
+  },
+  "privateBalanceUnwrapTrackStep3Title": {
+    "message": "Finalize unwrap"
+  },
+  "privateBalanceUnwrapTrackStep3Pending": {
+    "message": "Preparing your finalize transaction — confirm in MetaMask to receive public tokens."
+  },
+  "privateBalanceUnwrapTrackStep3Done": {
+    "message": "Finalize ready — confirm in MetaMask."
+  },
+  "privateBalanceUnwrapTrackStepFailed": {
+    "message": "This step failed. Reopen MetaMask to retry automatically."
   },
   "tokensCount": {
     "message": "tokens",

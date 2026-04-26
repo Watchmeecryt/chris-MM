@@ -1,4 +1,4 @@
-/** Minimal ERC-7984 + ERC-20 fragments — mirrors zWallet `ERC7984_ABI` usage. */
+/** Minimal ERC-7984 and ERC-20 ABI fragments for extension reads and contract calls. */
 
 export const CONFIDENTIAL_TRANSFER_ABI = [
   {
@@ -42,7 +42,7 @@ export const UNWRAP_ABI = [
   },
 ] as const;
 
-/** Second step after `unwrap` mines — same shape as zWallet / zpayy `finalizeUnwrap`. */
+/** Second on-chain step after `unwrap` confirms — standard `finalizeUnwrap` calldata shape. */
 export const FINALIZE_UNWRAP_ABI = [
   {
     type: 'function',

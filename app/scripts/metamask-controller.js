@@ -3957,7 +3957,7 @@ export default class MetamaskController extends EventEmitter {
   /**
    * Recover a published tx hash from the chain when MetaMask tx meta is stuck in `signed`
    * (Activity shows "Signing") but the transaction already mined — same on-chain source of truth
-   * as zWallet's `waitForTransactionReceipt` after `txConfirmed`, without relying on controller hash.
+   * as reading the transaction receipt after confirmation, without relying on controller hash.
    *
    * @param {`0x${string}`} chainIdHex
    * @param {string} fromAddress

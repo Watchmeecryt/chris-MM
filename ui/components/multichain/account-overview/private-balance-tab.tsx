@@ -99,7 +99,7 @@ export function PrivateBalanceTab() {
     [enabledChainIds.join(',')],
   );
 
-  /** Registry rows only — live handles are refetched like zpayy `confBalance.refetch()` (no auto EIP-712). */
+  /** Registry rows only — live handles are refetched on demand (no automatic EIP-712 signing). */
   const holdings = useMemo((): HoldingRow[] => {
     if (!evmAddress) {
       return [];
