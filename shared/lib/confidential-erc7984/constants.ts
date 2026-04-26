@@ -1,4 +1,4 @@
-/** Zama relayer REST — same defaults as Safe `relayerConstants.ts`. */
+/** Zama relayer REST base URLs and path suffixes for this extension integration. */
 
 export const MAINNET_RELAYER_BASE_URL =
   'https://mainnet-relyer-proxy-production.up.railway.app';

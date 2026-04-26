@@ -4,9 +4,7 @@ import { CONFIDENTIAL_ZERO_HANDLE } from '../../shared/lib/confidential-erc7984/
 
 export const CONFIDENTIAL_REVEALED_BALANCES_KEY = 'confidentialErc7984RevealedBalances';
 export const CONFIDENTIAL_PENDING_DECRYPT_KEY = 'confidentialErc7984PendingDecryptRows';
-/** `rowKey` → `Date.now()` when decrypt was started; used to drop stuck "Decrypting…" after timeout. */
 export const CONFIDENTIAL_PENDING_DECRYPT_AT_KEY = 'confidentialErc7984PendingDecryptAt';
-/** Drop pending decrypt UI if older than this (relayer can take ~120s; add margin). */
 export const CONFIDENTIAL_PENDING_DECRYPT_STALE_MS = 4 * 60 * 1000;
 /** When true, UI shows a masked balance; cleartext remains in {@link CONFIDENTIAL_REVEALED_BALANCES_KEY}. */
 export const CONFIDENTIAL_BALANCE_MASKED_KEY = 'confidentialErc7984BalanceMasked';

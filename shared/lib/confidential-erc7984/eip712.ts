@@ -1,4 +1,4 @@
-/** EIP-712 normalization for Zama user-decrypt (matches Safe `userDecryptFlow.ts`). */
+/** Normalizes relayer EIP-712 payloads for Zama user-decrypt (`eth_signTypedData_v4`). */
 
 export function toTypedDataV4Params(eip712: Record<string, unknown>) {
   const { domain, types, message, primaryType } = eip712;
